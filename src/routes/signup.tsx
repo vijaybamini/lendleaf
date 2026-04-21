@@ -36,7 +36,7 @@ function SignupPage() {
     e.preventDefault();
     const parsed = signupSchema.safeParse({ displayName, email, password });
     if (!parsed.success) {
-      toast.error(parsed.error.errors[0].message);
+      toast.error(parsed.error.issues[0].message);
       return;
     }
 
