@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as ShelfRouteImport } from './routes/shelf'
+import { Route as RequestsRouteImport } from './routes/requests'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as BrowseRouteImport } from './routes/browse'
 import { Route as IndexRouteImport } from './routes/index'
@@ -23,6 +24,11 @@ const SignupRoute = SignupRouteImport.update({
 const ShelfRoute = ShelfRouteImport.update({
   id: '/shelf',
   path: '/shelf',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RequestsRoute = RequestsRouteImport.update({
+  id: '/requests',
+  path: '/requests',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -45,6 +51,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/browse': typeof BrowseRoute
   '/login': typeof LoginRoute
+  '/requests': typeof RequestsRoute
   '/shelf': typeof ShelfRoute
   '/signup': typeof SignupRoute
 }
@@ -52,6 +59,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/browse': typeof BrowseRoute
   '/login': typeof LoginRoute
+  '/requests': typeof RequestsRoute
   '/shelf': typeof ShelfRoute
   '/signup': typeof SignupRoute
 }
@@ -60,21 +68,30 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/browse': typeof BrowseRoute
   '/login': typeof LoginRoute
+  '/requests': typeof RequestsRoute
   '/shelf': typeof ShelfRoute
   '/signup': typeof SignupRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/browse' | '/login' | '/shelf' | '/signup'
+  fullPaths: '/' | '/browse' | '/login' | '/requests' | '/shelf' | '/signup'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/browse' | '/login' | '/shelf' | '/signup'
-  id: '__root__' | '/' | '/browse' | '/login' | '/shelf' | '/signup'
+  to: '/' | '/browse' | '/login' | '/requests' | '/shelf' | '/signup'
+  id:
+    | '__root__'
+    | '/'
+    | '/browse'
+    | '/login'
+    | '/requests'
+    | '/shelf'
+    | '/signup'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   BrowseRoute: typeof BrowseRoute
   LoginRoute: typeof LoginRoute
+  RequestsRoute: typeof RequestsRoute
   ShelfRoute: typeof ShelfRoute
   SignupRoute: typeof SignupRoute
 }
@@ -93,6 +110,13 @@ declare module '@tanstack/react-router' {
       path: '/shelf'
       fullPath: '/shelf'
       preLoaderRoute: typeof ShelfRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/requests': {
+      id: '/requests'
+      path: '/requests'
+      fullPath: '/requests'
+      preLoaderRoute: typeof RequestsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -123,6 +147,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   BrowseRoute: BrowseRoute,
   LoginRoute: LoginRoute,
+  RequestsRoute: RequestsRoute,
   ShelfRoute: ShelfRoute,
   SignupRoute: SignupRoute,
 }

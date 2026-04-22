@@ -31,6 +31,9 @@ export function SiteHeader() {
               <Button asChild variant="ghost" size="sm">
                 <Link to="/shelf">My Shelf</Link>
               </Button>
+              <Button asChild variant="ghost" size="sm">
+                <Link to="/requests">Requests</Link>
+              </Button>
               {credits !== null && (
                 <div
                   className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/10 text-primary text-xs font-medium"
