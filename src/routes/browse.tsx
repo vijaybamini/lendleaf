@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { BookOpen, Loader2, Leaf, Clock, Check } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -16,7 +16,7 @@ export const Route = createFileRoute("/browse")({
       { title: "Browse Books — LendLeaf" },
       {
         name: "description",
-        content: "Borrow books from other LendLeaf members using your Leaf Credits.",
+        content: "Browse the full LendLeaf library and borrow books from other members using your Leaf Credits.",
       },
     ],
   }),
@@ -29,12 +29,15 @@ interface BrowseBook {
   cover_image: string | null;
   isbn: string | null;
   owner_id: string;
+  status: string;
 }
 
 interface OwnerProfile {
   id: string;
   display_name: string | null;
 }
+
+type FilterKey = "all" | "available" | "mine";
 
 function BrowsePage() {
   const { user, loading: authLoading } = useAuth();
@@ -46,6 +49,7 @@ function BrowsePage() {
   const [requestedBookIds, setRequestedBookIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [requesting, setRequesting] = useState<string | null>(null);
+  const [filter, setFilter] = useState<FilterKey>("all");
 
   useEffect(() => {
     if (!authLoading && !user) navigate({ to: "/login" });
@@ -57,8 +61,7 @@ function BrowsePage() {
 
     const { data: bookData, error: bookErr } = await supabase
       .from("books")
-      .select("id, title, author, cover_image, isbn, owner_id")
-      .neq("owner_id", user.id)
+      .select("id, title, author, cover_image, isbn, owner_id, status")
       .order("created_at", { ascending: false });
 
     if (bookErr) {
@@ -87,7 +90,7 @@ function BrowsePage() {
       .from("transactions")
       .select("book_id, status")
       .eq("borrower_id", user.id)
-      .in("status", ["pending", "active"]);
+      .in("status", ["pending", "accepted", "active"]);
     setRequestedBookIds(new Set((txData ?? []).map((t) => t.book_id)));
 
     setLoading(false);
@@ -115,6 +118,17 @@ function BrowsePage() {
     toast.success("Borrow request sent");
   };
 
+  const visibleBooks = useMemo(() => {
+    if (!user) return books;
+    if (filter === "available") {
+      return books.filter((b) => b.owner_id !== user.id && b.status === "available");
+    }
+    if (filter === "mine") {
+      return books.filter((b) => b.owner_id === user.id);
+    }
+    return books;
+  }, [books, filter, user]);
+
   if (authLoading || !user) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -125,6 +139,12 @@ function BrowsePage() {
 
   const noCredits = (credits ?? 0) <= 0;
 
+  const filterOptions: { key: FilterKey; label: string }[] = [
+    { key: "all", label: "All books" },
+    { key: "available", label: "Available to borrow" },
+    { key: "mine", label: "My books" },
+  ];
+
   return (
     <div className="min-h-screen flex flex-col">
       <SiteHeader />
@@ -134,7 +154,7 @@ function BrowsePage() {
           <div>
             <h1 className="font-serif text-4xl md:text-5xl font-semibold">Browse</h1>
             <p className="text-muted-foreground mt-1">
-              Books shared by other LendLeaf members
+              The full LendLeaf library
             </p>
           </div>
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 text-primary text-sm font-medium">
@@ -155,21 +175,50 @@ function BrowsePage() {
           </div>
         )}
 
+        <div className="flex items-center justify-between flex-wrap gap-3 mb-6">
+          <div className="inline-flex rounded-md border bg-card p-1">
+            {filterOptions.map((opt) => (
+              <button
+                key={opt.key}
+                onClick={() => setFilter(opt.key)}
+                className={`px-3 py-1.5 text-sm rounded-sm transition-colors ${
+                  filter === opt.key
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+          {!loading && (
+            <p className="text-sm text-muted-foreground">
+              Showing {visibleBooks.length} of {books.length} book{books.length === 1 ? "" : "s"}
+            </p>
+          )}
+        </div>
+
         {loading ? (
           <div className="flex justify-center py-20">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
-        ) : books.length === 0 ? (
+        ) : visibleBooks.length === 0 ? (
           <div className="paper-card rounded-lg py-16 px-6 text-center">
             <BookOpen className="h-12 w-12 text-muted-foreground/60 mx-auto mb-4" strokeWidth={1.25} />
-            <h2 className="font-serif text-2xl font-semibold mb-2">No books to borrow yet</h2>
+            <h2 className="font-serif text-2xl font-semibold mb-2">
+              {books.length === 0 ? "No books on LendLeaf yet" : "No books match this filter"}
+            </h2>
             <p className="text-muted-foreground max-w-sm mx-auto">
-              When other members add books to their shelves, they'll appear here.
+              {books.length === 0
+                ? "When members add books to their shelves, they'll appear here."
+                : "Try a different filter to see more books."}
             </p>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {books.map((book) => {
+            {visibleBooks.map((book) => {
+              const isMine = book.owner_id === user.id;
+              const isLent = book.status !== "available";
               const owner = owners[book.owner_id];
               const requested = requestedBookIds.has(book.id);
               const isRequesting = requesting === book.id;
@@ -193,9 +242,21 @@ function BrowsePage() {
                     )}
                   </div>
                   <div className="flex-1 min-w-0 flex flex-col">
-                    <h3 className="font-serif font-semibold leading-snug line-clamp-2">
-                      {book.title}
-                    </h3>
+                    <div className="flex items-start gap-2">
+                      <h3 className="font-serif font-semibold leading-snug line-clamp-2 flex-1">
+                        {book.title}
+                      </h3>
+                      {isMine && (
+                        <span className="text-[10px] uppercase tracking-wide font-medium px-1.5 py-0.5 rounded bg-primary/10 text-primary flex-shrink-0">
+                          Your book
+                        </span>
+                      )}
+                      {!isMine && isLent && (
+                        <span className="text-[10px] uppercase tracking-wide font-medium px-1.5 py-0.5 rounded bg-muted text-muted-foreground flex-shrink-0">
+                          Lent
+                        </span>
+                      )}
+                    </div>
                     {book.author && (
                       <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">
                         {book.author}
@@ -204,11 +265,19 @@ function BrowsePage() {
                     <p className="text-xs text-muted-foreground mt-2">
                       Shared by{" "}
                       <span className="font-medium text-foreground">
-                        {owner?.display_name ?? "a member"}
+                        {isMine ? "You" : owner?.display_name ?? "a member"}
                       </span>
                     </p>
                     <div className="mt-auto pt-3">
-                      {requested ? (
+                      {isMine ? (
+                        <Button size="sm" variant="outline" disabled className="w-full">
+                          Your book
+                        </Button>
+                      ) : isLent ? (
+                        <Button size="sm" variant="outline" disabled className="w-full">
+                          Currently lent
+                        </Button>
+                      ) : requested ? (
                         <Button size="sm" variant="outline" disabled className="w-full">
                           <Check className="h-3.5 w-3.5 mr-1" /> Request sent
                         </Button>
