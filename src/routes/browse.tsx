@@ -7,6 +7,7 @@ import { useAuth } from "@/lib/auth";
 import { useCredits } from "@/hooks/use-credits";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 export const Route = createFileRoute("/browse")({
   component: BrowsePage,
@@ -103,12 +104,7 @@ function BrowsePage() {
       return;
     }
     setRequesting(book.id);
-    const { error } = await supabase.from("transactions").insert({
-      book_id: book.id,
-      lender_id: book.owner_id,
-      borrower_id: user.id,
-      status: "pending",
-    });
+    const { error } = await supabase.rpc("request_borrow", { _book_id: book.id });
     setRequesting(null);
 
     if (error) {
@@ -216,11 +212,26 @@ function BrowsePage() {
                         <Button size="sm" variant="outline" disabled className="w-full">
                           <Check className="h-3.5 w-3.5 mr-1" /> Request sent
                         </Button>
+                      ) : noCredits ? (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span tabIndex={0} className="block w-full">
+                                <Button size="sm" disabled className="w-full pointer-events-none">
+                                  <Clock className="h-3.5 w-3.5 mr-1" /> Request to Borrow
+                                </Button>
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              You need at least 1 Leaf Credit to borrow.
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
                       ) : (
                         <Button
                           size="sm"
                           onClick={() => handleRequest(book)}
-                          disabled={noCredits || isRequesting}
+                          disabled={isRequesting}
                           className="w-full"
                         >
                           {isRequesting ? (
