@@ -23,6 +23,7 @@ export type Database = {
           id: string
           isbn: string | null
           owner_id: string
+          status: string
           title: string
         }
         Insert: {
@@ -33,6 +34,7 @@ export type Database = {
           id?: string
           isbn?: string | null
           owner_id: string
+          status?: string
           title: string
         }
         Update: {
@@ -43,6 +45,7 @@ export type Database = {
           id?: string
           isbn?: string | null
           owner_id?: string
+          status?: string
           title?: string
         }
         Relationships: []
@@ -114,10 +117,23 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      confirm_handover: {
+        Args: { _transaction_id: string }
+        Returns: undefined
+      }
+      request_borrow: { Args: { _book_id: string }; Returns: string }
+      respond_to_request: {
+        Args: { _accept: boolean; _transaction_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
-      transaction_status: "pending" | "active" | "completed" | "rejected"
+      transaction_status:
+        | "pending"
+        | "accepted"
+        | "active"
+        | "completed"
+        | "rejected"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -245,7 +261,13 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      transaction_status: ["pending", "active", "completed", "rejected"],
+      transaction_status: [
+        "pending",
+        "accepted",
+        "active",
+        "completed",
+        "rejected",
+      ],
     },
   },
 } as const
