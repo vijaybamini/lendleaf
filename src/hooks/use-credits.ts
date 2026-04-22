@@ -30,8 +30,8 @@ export function useCredits() {
     load();
 
     // Listen for profile changes (e.g. credits updated after a borrow)
-    const channel = supabase
-      .channel(`profile-credits-${user.id}`)
+    const channel = supabase.channel(`profile-credits-${user.id}`);
+    channel
       .on(
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "profiles", filter: `id=eq.${user.id}` },
