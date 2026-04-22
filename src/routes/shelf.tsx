@@ -14,6 +14,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { searchOpenLibrary, type OLBook } from "@/lib/openLibrary";
 
 export const Route = createFileRoute("/shelf")({
   component: ShelfPage,
@@ -26,18 +27,8 @@ interface Book {
   author: string | null;
   isbn: string | null;
   cover_image: string | null;
-  google_books_id: string | null;
+  google_books_id: string | null; // reused as external (Open Library) id
   created_at: string;
-}
-
-interface GoogleBookResult {
-  id: string;
-  volumeInfo: {
-    title?: string;
-    authors?: string[];
-    industryIdentifiers?: { type: string; identifier: string }[];
-    imageLinks?: { thumbnail?: string; smallThumbnail?: string };
-  };
 }
 
 function ShelfPage() {
@@ -91,6 +82,11 @@ function ShelfPage() {
     );
   }
 
+  const ownedIsbns = new Set(books.map((b) => b.isbn).filter(Boolean) as string[]);
+  const ownedExtIds = new Set(
+    books.map((b) => b.google_books_id).filter(Boolean) as string[],
+  );
+
   return (
     <div className="min-h-screen flex flex-col">
       <SiteHeader />
@@ -101,7 +97,7 @@ function ShelfPage() {
             <h1 className="font-serif text-4xl md:text-5xl font-semibold">My Shelf</h1>
             <p className="text-muted-foreground mt-1">
               {books.length === 0
-                ? "Your shelf is empty — add your first book."
+                ? "Your library is empty. Search for a book to start sharing!"
                 : `${books.length} ${books.length === 1 ? "book" : "books"} in your collection`}
             </p>
           </div>
@@ -121,7 +117,8 @@ function ShelfPage() {
                   fetchBooks();
                   setDialogOpen(false);
                 }}
-                ownedIds={new Set(books.map((b) => b.google_books_id).filter(Boolean) as string[])}
+                ownedIsbns={ownedIsbns}
+                ownedExtIds={ownedExtIds}
               />
             </DialogContent>
           </Dialog>
@@ -149,9 +146,9 @@ function EmptyShelf({ onAdd }: { onAdd: () => void }) {
   return (
     <div className="paper-card rounded-lg py-16 px-6 text-center">
       <BookOpen className="h-12 w-12 text-muted-foreground/60 mx-auto mb-4" strokeWidth={1.25} />
-      <h2 className="font-serif text-2xl font-semibold mb-2">A shelf waiting to be filled</h2>
+      <h2 className="font-serif text-2xl font-semibold mb-2">Your library is empty</h2>
       <p className="text-muted-foreground max-w-sm mx-auto mb-6">
-        Search by title or ISBN to add books from your collection.
+        Search for a book to start sharing!
       </p>
       <Button onClick={onAdd}>
         <Plus className="h-4 w-4 mr-1" /> Add your first book
@@ -165,7 +162,6 @@ function BookCard({ book, onDelete }: { book: Book; onDelete: () => void }) {
     <div className="group">
       <div className="relative aspect-[2/3] rounded-sm overflow-hidden shadow-book bg-muted">
         {book.cover_image ? (
-          // eslint-disable-next-line @next/next/no-img-element
           <img
             src={book.cover_image}
             alt={`Cover of ${book.title}`}
@@ -195,14 +191,16 @@ function BookCard({ book, onDelete }: { book: Book; onDelete: () => void }) {
 
 function BookSearch({
   onAdded,
-  ownedIds,
+  ownedIsbns,
+  ownedExtIds,
 }: {
   onAdded: () => void;
-  ownedIds: Set<string>;
+  ownedIsbns: Set<string>;
+  ownedExtIds: Set<string>;
 }) {
   const { user } = useAuth();
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<GoogleBookResult[]>([]);
+  const [results, setResults] = useState<OLBook[]>([]);
   const [searching, setSearching] = useState(false);
   const [adding, setAdding] = useState<string | null>(null);
 
@@ -212,12 +210,9 @@ function BookSearch({
     if (!q) return;
     setSearching(true);
     try {
-      const res = await fetch(
-        `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(q)}&maxResults=12`,
-      );
-      const data = await res.json();
-      setResults(data.items ?? []);
-      if (!data.items?.length) toast.info("No books found — try another query");
+      const items = await searchOpenLibrary(q, 12);
+      setResults(items);
+      if (!items.length) toast.info("No books found — try another query");
     } catch {
       toast.error("Search failed. Please try again.");
     } finally {
@@ -225,31 +220,39 @@ function BookSearch({
     }
   };
 
-  const addBook = async (item: GoogleBookResult) => {
-    if (!user) return;
-    setAdding(item.id);
-    const info = item.volumeInfo;
-    const isbn =
-      info.industryIdentifiers?.find((i) => i.type === "ISBN_13")?.identifier ??
-      info.industryIdentifiers?.find((i) => i.type === "ISBN_10")?.identifier ??
-      null;
-    const cover = info.imageLinks?.thumbnail?.replace("http://", "https://") ?? null;
+  const isOwned = (item: OLBook) =>
+    (item.isbn && ownedIsbns.has(item.isbn)) || ownedExtIds.has(item.id);
 
+  const addBook = async (item: OLBook) => {
+    if (!user) return;
+
+    // Client-side duplicate guard
+    if (isOwned(item)) {
+      toast.info("This book is already on your shelf");
+      return;
+    }
+
+    setAdding(item.id);
     const { error } = await supabase.from("books").insert({
       owner_id: user.id,
-      title: info.title ?? "Untitled",
-      author: info.authors?.join(", ") ?? null,
-      isbn,
-      cover_image: cover,
-      google_books_id: item.id,
+      title: item.title,
+      author: item.authors.join(", ") || null,
+      isbn: item.isbn,
+      cover_image: item.coverUrl,
+      google_books_id: item.id, // stores Open Library work key
     });
     setAdding(null);
 
     if (error) {
+      // Postgres unique violation (duplicate ISBN or external id for this user)
+      if (error.code === "23505") {
+        toast.info("This book is already on your shelf");
+        return;
+      }
       toast.error("Couldn't add book");
       return;
     }
-    toast.success(`Added "${info.title}" to your shelf`);
+    toast.success(`Added "${item.title}" to your shelf`);
     onAdded();
   };
 
@@ -279,15 +282,14 @@ function BookSearch({
         ) : (
           <ul className="divide-y divide-border">
             {results.map((item) => {
-              const info = item.volumeInfo;
-              const owned = ownedIds.has(item.id);
+              const owned = isOwned(item);
+              const isAdding = adding === item.id;
               return (
                 <li key={item.id} className="flex gap-3 py-3 items-start">
                   <div className="w-12 h-16 flex-shrink-0 bg-muted rounded-sm overflow-hidden">
-                    {info.imageLinks?.smallThumbnail ? (
-                      // eslint-disable-next-line @next/next/no-img-element
+                    {item.coverUrl ? (
                       <img
-                        src={info.imageLinks.smallThumbnail.replace("http://", "https://")}
+                        src={item.coverUrl}
                         alt=""
                         className="w-full h-full object-cover"
                       />
@@ -298,28 +300,28 @@ function BookSearch({
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium text-sm leading-tight line-clamp-2">
-                      {info.title ?? "Untitled"}
-                    </p>
-                    {info.authors && (
+                    <p className="font-medium text-sm leading-tight line-clamp-2">{item.title}</p>
+                    {item.authors.length > 0 && (
                       <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">
-                        {info.authors.join(", ")}
+                        {item.authors.join(", ")}
                       </p>
                     )}
                   </div>
                   <Button
                     size="sm"
                     variant={owned ? "outline" : "default"}
-                    disabled={owned || adding === item.id}
+                    disabled={owned || isAdding}
                     onClick={() => addBook(item)}
                   >
-                    {adding === item.id ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    {isAdding ? (
+                      <>
+                        <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> Adding…
+                      </>
                     ) : owned ? (
                       "On shelf"
                     ) : (
                       <>
-                        <Plus className="h-3.5 w-3.5" /> Add
+                        <Plus className="h-3.5 w-3.5 mr-1" /> Add
                       </>
                     )}
                   </Button>
