@@ -50,23 +50,64 @@ export type Database = {
       profiles: {
         Row: {
           created_at: string
+          credits: number
           display_name: string | null
           id: string
           updated_at: string
         }
         Insert: {
           created_at?: string
+          credits?: number
           display_name?: string | null
           id: string
           updated_at?: string
         }
         Update: {
           created_at?: string
+          credits?: number
           display_name?: string | null
           id?: string
           updated_at?: string
         }
         Relationships: []
+      }
+      transactions: {
+        Row: {
+          book_id: string
+          borrower_id: string
+          created_at: string
+          id: string
+          lender_id: string
+          status: Database["public"]["Enums"]["transaction_status"]
+          updated_at: string
+        }
+        Insert: {
+          book_id: string
+          borrower_id: string
+          created_at?: string
+          id?: string
+          lender_id: string
+          status?: Database["public"]["Enums"]["transaction_status"]
+          updated_at?: string
+        }
+        Update: {
+          book_id?: string
+          borrower_id?: string
+          created_at?: string
+          id?: string
+          lender_id?: string
+          status?: Database["public"]["Enums"]["transaction_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transactions_book_id_fkey"
+            columns: ["book_id"]
+            isOneToOne: false
+            referencedRelation: "books"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
@@ -76,7 +117,7 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      transaction_status: "pending" | "active" | "completed" | "rejected"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -203,6 +244,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      transaction_status: ["pending", "active", "completed", "rejected"],
+    },
   },
 } as const
