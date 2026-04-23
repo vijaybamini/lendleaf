@@ -77,27 +77,33 @@ export type Database = {
       transactions: {
         Row: {
           book_id: string
+          borrower_confirmed: boolean
           borrower_id: string
           created_at: string
           id: string
+          lender_confirmed: boolean
           lender_id: string
           status: Database["public"]["Enums"]["transaction_status"]
           updated_at: string
         }
         Insert: {
           book_id: string
+          borrower_confirmed?: boolean
           borrower_id: string
           created_at?: string
           id?: string
+          lender_confirmed?: boolean
           lender_id: string
           status?: Database["public"]["Enums"]["transaction_status"]
           updated_at?: string
         }
         Update: {
           book_id?: string
+          borrower_confirmed?: boolean
           borrower_id?: string
           created_at?: string
           id?: string
+          lender_confirmed?: boolean
           lender_id?: string
           status?: Database["public"]["Enums"]["transaction_status"]
           updated_at?: string
