@@ -13,6 +13,8 @@ import {
   ArrowDownLeft,
   ArrowUpRight,
   Hourglass,
+  PackageCheck,
+  Undo2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -42,6 +44,8 @@ interface TxRow {
   lender_id: string;
   lender_confirmed: boolean;
   borrower_confirmed: boolean;
+  lender_returned: boolean;
+  borrower_returned: boolean;
   book: { id: string; title: string; author: string | null; cover_image: string | null } | null;
   counterparty: { id: string; display_name: string | null } | null;
 }
@@ -64,11 +68,28 @@ function statusBadge(tx: TxRow, viewerIsLender: boolean) {
     );
   }
 
+  if (tx.status === "active") {
+    const myReturned = viewerIsLender ? tx.lender_returned : tx.borrower_returned;
+    const theirReturned = viewerIsLender ? tx.borrower_returned : tx.lender_returned;
+    if (myReturned && !theirReturned) {
+      return (
+        <Badge variant="outline" className="bg-amber-100 text-amber-900 border-amber-200">
+          Waiting on return confirmation
+        </Badge>
+      );
+    }
+    return (
+      <Badge variant="outline" className="bg-primary/15 text-primary border-primary/20">
+        Active loan
+      </Badge>
+    );
+  }
+
   const map: Record<TxStatus, { label: string; className: string }> = {
     pending: { label: "Pending", className: "bg-amber-100 text-amber-900 border-amber-200" },
     accepted: { label: "Accepted", className: "bg-blue-100 text-blue-900 border-blue-200" },
     active: { label: "Active", className: "bg-primary/15 text-primary border-primary/20" },
-    completed: { label: "Completed", className: "bg-muted text-muted-foreground border-border" },
+    completed: { label: "Returned", className: "bg-muted text-muted-foreground border-border" },
     rejected: { label: "Rejected", className: "bg-muted text-muted-foreground border-border" },
   };
   const v = map[tx.status];
@@ -83,7 +104,7 @@ async function fetchTransactions(
   const { data: txs, error } = await supabase
     .from("transactions")
     .select(
-      "id, status, created_at, book_id, borrower_id, lender_id, lender_confirmed, borrower_confirmed",
+      "id, status, created_at, book_id, borrower_id, lender_id, lender_confirmed, borrower_confirmed, lender_returned, borrower_returned",
     )
     .eq(filterColumn, userId)
     .order("created_at", { ascending: false });
@@ -118,6 +139,8 @@ async function fetchTransactions(
     lender_id: t.lender_id,
     lender_confirmed: t.lender_confirmed,
     borrower_confirmed: t.borrower_confirmed,
+    lender_returned: t.lender_returned,
+    borrower_returned: t.borrower_returned,
     book: bookMap.get(t.book_id) ?? null,
     counterparty:
       profileMap.get(side === "incoming" ? t.borrower_id : t.lender_id) ?? null,
@@ -229,6 +252,49 @@ function RequestsPage() {
     onSettled: invalidateAll,
   });
 
+  // Confirm return — works for both lender and borrower (mutual confirmation)
+  const returnMutation = useMutation({
+    mutationFn: async ({ id }: { id: string; side: "incoming" | "outgoing" }) => {
+      const { error } = await supabase.rpc("confirm_return", { _transaction_id: id });
+      if (error) throw error;
+    },
+    onMutate: async ({ id, side }) => {
+      const key = side === "incoming" ? incomingKey : outgoingKey;
+      await queryClient.cancelQueries({ queryKey: key });
+      const previous = queryClient.getQueryData<TxRow[]>(key);
+      queryClient.setQueryData<TxRow[]>(key, (old) =>
+        (old ?? []).map((r) => {
+          if (r.id !== id) return r;
+          const lender_returned = side === "incoming" ? true : r.lender_returned;
+          const borrower_returned = side === "outgoing" ? true : r.borrower_returned;
+          const bothReturned = lender_returned && borrower_returned;
+          return {
+            ...r,
+            lender_returned,
+            borrower_returned,
+            status: bothReturned ? ("completed" as const) : r.status,
+          };
+        }),
+      );
+      return { previous, key };
+    },
+    onError: (err: Error, _vars, ctx) => {
+      if (ctx?.previous && ctx.key) queryClient.setQueryData(ctx.key, ctx.previous);
+      toast.error(err.message || "Return confirmation failed");
+    },
+    onSuccess: (_data, { id, side }) => {
+      const key = side === "incoming" ? incomingKey : outgoingKey;
+      const list = queryClient.getQueryData<TxRow[]>(key) ?? [];
+      const tx = list.find((r) => r.id === id);
+      if (tx?.status === "completed") {
+        toast.success("Return complete — book is back on the shelf 🌿");
+      } else {
+        toast.success("Return confirmed. Waiting for the other party.");
+      }
+    },
+    onSettled: invalidateAll,
+  });
+
   if (authLoading || !user) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -240,15 +306,17 @@ function RequestsPage() {
   // Incoming buckets (lender's perspective)
   const incomingPending = incoming.filter((r) => r.status === "pending");
   const incomingAccepted = incoming.filter((r) => r.status === "accepted");
+  const incomingActive = incoming.filter((r) => r.status === "active");
   const incomingHistory = incoming.filter((r) =>
-    ["active", "completed", "rejected"].includes(r.status),
+    ["completed", "rejected"].includes(r.status),
   );
 
   // Outgoing buckets (borrower's perspective)
   const outgoingPending = outgoing.filter((r) => r.status === "pending");
   const outgoingAccepted = outgoing.filter((r) => r.status === "accepted");
+  const outgoingActive = outgoing.filter((r) => r.status === "active");
   const outgoingHistory = outgoing.filter((r) =>
-    ["active", "completed", "rejected"].includes(r.status),
+    ["completed", "rejected"].includes(r.status),
   );
 
   const respondingId = respondMutation.isPending
@@ -256,6 +324,9 @@ function RequestsPage() {
     : undefined;
   const handoverId = handoverMutation.isPending
     ? handoverMutation.variables?.id
+    : undefined;
+  const returnId = returnMutation.isPending
+    ? returnMutation.variables?.id
     : undefined;
 
   const isLoading = incomingLoading || outgoingLoading;
@@ -362,6 +433,40 @@ function RequestsPage() {
                   )}
                 </Section>
 
+                <Section title="Active loans" icon={<PackageCheck className="h-4 w-4" />} count={incomingActive.length}>
+                  {incomingActive.length === 0 ? (
+                    <EmptyHint>No books currently lent out.</EmptyHint>
+                  ) : (
+                    incomingActive.map((r) => {
+                      const busy = returnId === r.id;
+                      const alreadyReturned = r.lender_returned;
+                      return (
+                        <RequestRow key={r.id} req={r} viewerIsLender>
+                          {alreadyReturned ? (
+                            <Button size="sm" variant="outline" disabled>
+                              <Hourglass className="h-3.5 w-3.5 mr-1" /> Waiting for borrower to confirm return
+                            </Button>
+                          ) : (
+                            <Button
+                              size="sm"
+                              onClick={() =>
+                                returnMutation.mutate({ id: r.id, side: "incoming" })
+                              }
+                              disabled={busy}
+                            >
+                              {busy ? (
+                                <><Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> Confirming…</>
+                              ) : (
+                                <><Undo2 className="h-3.5 w-3.5 mr-1" /> I got the book back</>
+                              )}
+                            </Button>
+                          )}
+                        </RequestRow>
+                      );
+                    })
+                  )}
+                </Section>
+
                 {incomingHistory.length > 0 && (
                   <Section title="History" icon={<CheckCircle2 className="h-4 w-4" />} count={incomingHistory.length}>
                     {incomingHistory.map((r) => (
@@ -416,6 +521,40 @@ function RequestsPage() {
                                 <><Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> Confirming…</>
                               ) : (
                                 <><Check className="h-3.5 w-3.5 mr-1" /> I received the book</>
+                              )}
+                            </Button>
+                          )}
+                        </RequestRow>
+                      );
+                    })
+                  )}
+                </Section>
+
+                <Section title="Active loans" icon={<PackageCheck className="h-4 w-4" />} count={outgoingActive.length}>
+                  {outgoingActive.length === 0 ? (
+                    <EmptyHint>No books currently borrowed.</EmptyHint>
+                  ) : (
+                    outgoingActive.map((r) => {
+                      const busy = returnId === r.id;
+                      const alreadyReturned = r.borrower_returned;
+                      return (
+                        <RequestRow key={r.id} req={r} viewerIsLender={false}>
+                          {alreadyReturned ? (
+                            <Button size="sm" variant="outline" disabled>
+                              <Hourglass className="h-3.5 w-3.5 mr-1" /> Waiting for lender to confirm return
+                            </Button>
+                          ) : (
+                            <Button
+                              size="sm"
+                              onClick={() =>
+                                returnMutation.mutate({ id: r.id, side: "outgoing" })
+                              }
+                              disabled={busy}
+                            >
+                              {busy ? (
+                                <><Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> Confirming…</>
+                              ) : (
+                                <><Undo2 className="h-3.5 w-3.5 mr-1" /> I returned the book</>
                               )}
                             </Button>
                           )}
