@@ -44,6 +44,8 @@ interface TxRow {
   lender_id: string;
   lender_confirmed: boolean;
   borrower_confirmed: boolean;
+  lender_returned: boolean;
+  borrower_returned: boolean;
   book: { id: string; title: string; author: string | null; cover_image: string | null } | null;
   counterparty: { id: string; display_name: string | null } | null;
 }
@@ -66,11 +68,28 @@ function statusBadge(tx: TxRow, viewerIsLender: boolean) {
     );
   }
 
+  if (tx.status === "active") {
+    const myReturned = viewerIsLender ? tx.lender_returned : tx.borrower_returned;
+    const theirReturned = viewerIsLender ? tx.borrower_returned : tx.lender_returned;
+    if (myReturned && !theirReturned) {
+      return (
+        <Badge variant="outline" className="bg-amber-100 text-amber-900 border-amber-200">
+          Waiting on return confirmation
+        </Badge>
+      );
+    }
+    return (
+      <Badge variant="outline" className="bg-primary/15 text-primary border-primary/20">
+        Active loan
+      </Badge>
+    );
+  }
+
   const map: Record<TxStatus, { label: string; className: string }> = {
     pending: { label: "Pending", className: "bg-amber-100 text-amber-900 border-amber-200" },
     accepted: { label: "Accepted", className: "bg-blue-100 text-blue-900 border-blue-200" },
     active: { label: "Active", className: "bg-primary/15 text-primary border-primary/20" },
-    completed: { label: "Completed", className: "bg-muted text-muted-foreground border-border" },
+    completed: { label: "Returned", className: "bg-muted text-muted-foreground border-border" },
     rejected: { label: "Rejected", className: "bg-muted text-muted-foreground border-border" },
   };
   const v = map[tx.status];
