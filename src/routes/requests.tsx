@@ -104,7 +104,7 @@ async function fetchTransactions(
   const { data: txs, error } = await supabase
     .from("transactions")
     .select(
-      "id, status, created_at, book_id, borrower_id, lender_id, lender_confirmed, borrower_confirmed",
+      "id, status, created_at, book_id, borrower_id, lender_id, lender_confirmed, borrower_confirmed, lender_returned, borrower_returned",
     )
     .eq(filterColumn, userId)
     .order("created_at", { ascending: false });
@@ -139,6 +139,8 @@ async function fetchTransactions(
     lender_id: t.lender_id,
     lender_confirmed: t.lender_confirmed,
     borrower_confirmed: t.borrower_confirmed,
+    lender_returned: t.lender_returned,
+    borrower_returned: t.borrower_returned,
     book: bookMap.get(t.book_id) ?? null,
     counterparty:
       profileMap.get(side === "incoming" ? t.borrower_id : t.lender_id) ?? null,
