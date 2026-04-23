@@ -79,10 +79,12 @@ export type Database = {
           book_id: string
           borrower_confirmed: boolean
           borrower_id: string
+          borrower_returned: boolean
           created_at: string
           id: string
           lender_confirmed: boolean
           lender_id: string
+          lender_returned: boolean
           status: Database["public"]["Enums"]["transaction_status"]
           updated_at: string
         }
@@ -90,10 +92,12 @@ export type Database = {
           book_id: string
           borrower_confirmed?: boolean
           borrower_id: string
+          borrower_returned?: boolean
           created_at?: string
           id?: string
           lender_confirmed?: boolean
           lender_id: string
+          lender_returned?: boolean
           status?: Database["public"]["Enums"]["transaction_status"]
           updated_at?: string
         }
@@ -101,10 +105,12 @@ export type Database = {
           book_id?: string
           borrower_confirmed?: boolean
           borrower_id?: string
+          borrower_returned?: boolean
           created_at?: string
           id?: string
           lender_confirmed?: boolean
           lender_id?: string
+          lender_returned?: boolean
           status?: Database["public"]["Enums"]["transaction_status"]
           updated_at?: string
         }
@@ -127,6 +133,7 @@ export type Database = {
         Args: { _transaction_id: string }
         Returns: undefined
       }
+      confirm_return: { Args: { _transaction_id: string }; Returns: undefined }
       request_borrow: { Args: { _book_id: string }; Returns: string }
       respond_to_request: {
         Args: { _accept: boolean; _transaction_id: string }
