@@ -252,6 +252,49 @@ function RequestsPage() {
     onSettled: invalidateAll,
   });
 
+  // Confirm return — works for both lender and borrower (mutual confirmation)
+  const returnMutation = useMutation({
+    mutationFn: async ({ id }: { id: string; side: "incoming" | "outgoing" }) => {
+      const { error } = await supabase.rpc("confirm_return", { _transaction_id: id });
+      if (error) throw error;
+    },
+    onMutate: async ({ id, side }) => {
+      const key = side === "incoming" ? incomingKey : outgoingKey;
+      await queryClient.cancelQueries({ queryKey: key });
+      const previous = queryClient.getQueryData<TxRow[]>(key);
+      queryClient.setQueryData<TxRow[]>(key, (old) =>
+        (old ?? []).map((r) => {
+          if (r.id !== id) return r;
+          const lender_returned = side === "incoming" ? true : r.lender_returned;
+          const borrower_returned = side === "outgoing" ? true : r.borrower_returned;
+          const bothReturned = lender_returned && borrower_returned;
+          return {
+            ...r,
+            lender_returned,
+            borrower_returned,
+            status: bothReturned ? ("completed" as const) : r.status,
+          };
+        }),
+      );
+      return { previous, key };
+    },
+    onError: (err: Error, _vars, ctx) => {
+      if (ctx?.previous && ctx.key) queryClient.setQueryData(ctx.key, ctx.previous);
+      toast.error(err.message || "Return confirmation failed");
+    },
+    onSuccess: (_data, { id, side }) => {
+      const key = side === "incoming" ? incomingKey : outgoingKey;
+      const list = queryClient.getQueryData<TxRow[]>(key) ?? [];
+      const tx = list.find((r) => r.id === id);
+      if (tx?.status === "completed") {
+        toast.success("Return complete — book is back on the shelf 🌿");
+      } else {
+        toast.success("Return confirmed. Waiting for the other party.");
+      }
+    },
+    onSettled: invalidateAll,
+  });
+
   if (authLoading || !user) {
     return (
       <div className="min-h-screen flex items-center justify-center">
