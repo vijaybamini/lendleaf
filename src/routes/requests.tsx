@@ -1,5 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { BookOpen, Check, X, Loader2, Handshake, Inbox, Clock, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -34,7 +35,7 @@ function statusBadge(status: TxStatus) {
   const map: Record<TxStatus, { label: string; className: string }> = {
     pending: { label: "Pending", className: "bg-amber-100 text-amber-900 border-amber-200" },
     accepted: { label: "Accepted — awaiting handover", className: "bg-blue-100 text-blue-900 border-blue-200" },
-    active: { label: "Lent out", className: "bg-primary/15 text-primary border-primary/20" },
+    active: { label: "Active", className: "bg-primary/15 text-primary border-primary/20" },
     completed: { label: "Completed", className: "bg-muted text-muted-foreground border-border" },
     rejected: { label: "Rejected", className: "bg-muted text-muted-foreground border-border" },
   };
@@ -42,93 +43,120 @@ function statusBadge(status: TxStatus) {
   return <Badge variant="outline" className={v.className}>{v.label}</Badge>;
 }
 
+async function fetchIncomingRequests(userId: string): Promise<IncomingRequest[]> {
+  const { data: txs, error } = await supabase
+    .from("transactions")
+    .select("id, status, created_at, book_id, borrower_id")
+    .eq("lender_id", userId)
+    .order("created_at", { ascending: false });
+
+  if (error) throw error;
+
+  const list = txs ?? [];
+  const bookIds = Array.from(new Set(list.map((t) => t.book_id)));
+  const borrowerIds = Array.from(new Set(list.map((t) => t.borrower_id)));
+
+  const [booksRes, profilesRes] = await Promise.all([
+    bookIds.length
+      ? supabase.from("books").select("id, title, author, cover_image").in("id", bookIds)
+      : Promise.resolve({ data: [] as Array<{ id: string; title: string; author: string | null; cover_image: string | null }> }),
+    borrowerIds.length
+      ? supabase.from("profiles").select("id, display_name").in("id", borrowerIds)
+      : Promise.resolve({ data: [] as Array<{ id: string; display_name: string | null }> }),
+  ]);
+
+  const bookMap = new Map((booksRes.data ?? []).map((b) => [b.id, b]));
+  const profileMap = new Map((profilesRes.data ?? []).map((p) => [p.id, p]));
+
+  return list.map((t) => ({
+    id: t.id,
+    status: t.status as TxStatus,
+    created_at: t.created_at,
+    book_id: t.book_id,
+    borrower_id: t.borrower_id,
+    book: bookMap.get(t.book_id) ?? null,
+    borrower: profileMap.get(t.borrower_id) ?? null,
+  }));
+}
+
 function RequestsPage() {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
-  const [requests, setRequests] = useState<IncomingRequest[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [actingId, setActingId] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     if (!authLoading && !user) navigate({ to: "/login" });
   }, [user, authLoading, navigate]);
 
-  const fetchRequests = useCallback(async () => {
-    if (!user) return;
-    setLoading(true);
+  const incomingKey = ["incoming-requests", user?.id] as const;
 
-    const { data: txs, error } = await supabase
-      .from("transactions")
-      .select("id, status, created_at, book_id, borrower_id")
-      .eq("lender_id", user.id)
-      .order("created_at", { ascending: false });
+  const { data: requests = [], isLoading } = useQuery({
+    queryKey: incomingKey,
+    queryFn: () => fetchIncomingRequests(user!.id),
+    enabled: !!user,
+  });
 
-    if (error) {
-      toast.error("Couldn't load requests");
-      setLoading(false);
-      return;
-    }
-
-    const list = txs ?? [];
-    const bookIds = Array.from(new Set(list.map((t) => t.book_id)));
-    const borrowerIds = Array.from(new Set(list.map((t) => t.borrower_id)));
-
-    const [booksRes, profilesRes] = await Promise.all([
-      bookIds.length
-        ? supabase.from("books").select("id, title, author, cover_image").in("id", bookIds)
-        : Promise.resolve({ data: [] as Array<{ id: string; title: string; author: string | null; cover_image: string | null }> }),
-      borrowerIds.length
-        ? supabase.from("profiles").select("id, display_name").in("id", borrowerIds)
-        : Promise.resolve({ data: [] as Array<{ id: string; display_name: string | null }> }),
-    ]);
-
-    const bookMap = new Map((booksRes.data ?? []).map((b) => [b.id, b]));
-    const profileMap = new Map((profilesRes.data ?? []).map((p) => [p.id, p]));
-
-    setRequests(
-      list.map((t) => ({
-        id: t.id,
-        status: t.status as TxStatus,
-        created_at: t.created_at,
-        book_id: t.book_id,
-        borrower_id: t.borrower_id,
-        book: bookMap.get(t.book_id) ?? null,
-        borrower: profileMap.get(t.borrower_id) ?? null,
-      })),
-    );
-    setLoading(false);
-  }, [user]);
-
-  useEffect(() => {
-    fetchRequests();
-  }, [fetchRequests]);
-
-  const handleRespond = async (id: string, accept: boolean) => {
-    setActingId(id);
-    const { error } = await supabase.rpc("respond_to_request", {
-      _transaction_id: id,
-      _accept: accept,
-    });
-    setActingId(null);
-    if (error) {
-      toast.error(error.message || "Action failed");
-      return;
-    }
-    toast.success(accept ? "Request accepted" : "Request rejected");
-    fetchRequests();
+  // Invalidate the related caches a mutation might affect
+  const invalidateAll = () => {
+    queryClient.invalidateQueries({ queryKey: ["incoming-requests"] });
+    queryClient.invalidateQueries({ queryKey: ["transactions"] });
+    queryClient.invalidateQueries({ queryKey: ["outgoing-requests"] });
+    queryClient.invalidateQueries({ queryKey: ["book-details"] });
+    queryClient.invalidateQueries({ queryKey: ["credits"] });
   };
 
-  const handleHandover = async (id: string) => {
-    setActingId(id);
-    const { error } = await supabase.rpc("confirm_handover", { _transaction_id: id });
-    setActingId(null);
-    if (error) {
-      toast.error(error.message || "Handover failed");
-      return;
-    }
-    toast.success("Credit transferred — enjoy lending! 🌿");
-    fetchRequests();
-  };
+  // Accept / Reject mutation — optimistic
+  const respondMutation = useMutation({
+    mutationFn: async ({ id, accept }: { id: string; accept: boolean }) => {
+      const { error } = await supabase.rpc("respond_to_request", {
+        _transaction_id: id,
+        _accept: accept,
+      });
+      if (error) throw error;
+    },
+    onMutate: async ({ id, accept }) => {
+      await queryClient.cancelQueries({ queryKey: incomingKey });
+      const previous = queryClient.getQueryData<IncomingRequest[]>(incomingKey);
+      queryClient.setQueryData<IncomingRequest[]>(incomingKey, (old) =>
+        (old ?? []).map((r) =>
+          r.id === id ? { ...r, status: accept ? "accepted" : "rejected" } : r,
+        ),
+      );
+      return { previous };
+    },
+    onError: (err: Error, _vars, ctx) => {
+      if (ctx?.previous) queryClient.setQueryData(incomingKey, ctx.previous);
+      toast.error(err.message || "Action failed");
+    },
+    onSuccess: (_data, { accept }) => {
+      toast.success(accept ? "Request accepted" : "Request rejected");
+    },
+    onSettled: invalidateAll,
+  });
+
+  // Confirm handover mutation — optimistic flip to "active"
+  const handoverMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.rpc("confirm_handover", { _transaction_id: id });
+      if (error) throw error;
+    },
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: incomingKey });
+      const previous = queryClient.getQueryData<IncomingRequest[]>(incomingKey);
+      queryClient.setQueryData<IncomingRequest[]>(incomingKey, (old) =>
+        (old ?? []).map((r) => (r.id === id ? { ...r, status: "active" as const } : r)),
+      );
+      return { previous };
+    },
+    onError: (err: Error, _id, ctx) => {
+      if (ctx?.previous) queryClient.setQueryData(incomingKey, ctx.previous);
+      toast.error(err.message || "Handover failed");
+    },
+    onSuccess: () => {
+      toast.success("Credit transferred — enjoy lending! 🌿");
+    },
+    onSettled: invalidateAll,
+  });
 
   if (authLoading || !user) {
     return (
@@ -142,6 +170,12 @@ function RequestsPage() {
   const accepted = requests.filter((r) => r.status === "accepted");
   const history = requests.filter((r) => ["active", "completed", "rejected"].includes(r.status));
 
+  // Track per-row pending state — variables holds the in-flight payload
+  const respondingId =
+    respondMutation.isPending ? respondMutation.variables?.id : undefined;
+  const handoverId =
+    handoverMutation.isPending ? handoverMutation.variables : undefined;
+
   return (
     <div className="min-h-screen flex flex-col">
       <SiteHeader />
@@ -153,7 +187,7 @@ function RequestsPage() {
           </p>
         </div>
 
-        {loading ? (
+        {isLoading ? (
           <div className="flex justify-center py-20">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
@@ -171,29 +205,32 @@ function RequestsPage() {
               {pending.length === 0 ? (
                 <EmptyHint>No pending requests.</EmptyHint>
               ) : (
-                pending.map((r) => (
-                  <RequestRow key={r.id} req={r}>
-                    <Button
-                      size="sm"
-                      onClick={() => handleRespond(r.id, true)}
-                      disabled={actingId === r.id}
-                    >
-                      {actingId === r.id ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      ) : (
-                        <><Check className="h-3.5 w-3.5 mr-1" /> Accept</>
-                      )}
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleRespond(r.id, false)}
-                      disabled={actingId === r.id}
-                    >
-                      <X className="h-3.5 w-3.5 mr-1" /> Reject
-                    </Button>
-                  </RequestRow>
-                ))
+                pending.map((r) => {
+                  const busy = respondingId === r.id;
+                  return (
+                    <RequestRow key={r.id} req={r}>
+                      <Button
+                        size="sm"
+                        onClick={() => respondMutation.mutate({ id: r.id, accept: true })}
+                        disabled={busy}
+                      >
+                        {busy ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <><Check className="h-3.5 w-3.5 mr-1" /> Accept</>
+                        )}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => respondMutation.mutate({ id: r.id, accept: false })}
+                        disabled={busy}
+                      >
+                        <X className="h-3.5 w-3.5 mr-1" /> Reject
+                      </Button>
+                    </RequestRow>
+                  );
+                })
               )}
             </Section>
 
@@ -201,21 +238,24 @@ function RequestsPage() {
               {accepted.length === 0 ? (
                 <EmptyHint>No accepted requests waiting on handover.</EmptyHint>
               ) : (
-                accepted.map((r) => (
-                  <RequestRow key={r.id} req={r}>
-                    <Button
-                      size="sm"
-                      onClick={() => handleHandover(r.id)}
-                      disabled={actingId === r.id}
-                    >
-                      {actingId === r.id ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      ) : (
-                        <><Handshake className="h-3.5 w-3.5 mr-1" /> Confirm Physical Handover</>
-                      )}
-                    </Button>
-                  </RequestRow>
-                ))
+                accepted.map((r) => {
+                  const busy = handoverId === r.id;
+                  return (
+                    <RequestRow key={r.id} req={r}>
+                      <Button
+                        size="sm"
+                        onClick={() => handoverMutation.mutate(r.id)}
+                        disabled={busy}
+                      >
+                        {busy ? (
+                          <><Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> Confirming…</>
+                        ) : (
+                          <><Handshake className="h-3.5 w-3.5 mr-1" /> Confirm Physical Handover</>
+                        )}
+                      </Button>
+                    </RequestRow>
+                  );
+                })
               )}
             </Section>
 
