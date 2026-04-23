@@ -30,7 +30,9 @@ export function useCredits() {
     load();
 
     // Listen for profile changes (e.g. credits updated after a borrow)
-    const channel = supabase.channel(`profile-credits-${user.id}`);
+    // Each hook instance needs its own channel topic because this hook is used
+    // in multiple places at once (for example the header and the browse page).
+    const channel = supabase.channel(`profile-credits-${user.id}-${crypto.randomUUID()}`);
     channel
       .on(
         "postgres_changes",
