@@ -530,6 +530,40 @@ function RequestsPage() {
                   )}
                 </Section>
 
+                <Section title="Active loans" icon={<PackageCheck className="h-4 w-4" />} count={outgoingActive.length}>
+                  {outgoingActive.length === 0 ? (
+                    <EmptyHint>No books currently borrowed.</EmptyHint>
+                  ) : (
+                    outgoingActive.map((r) => {
+                      const busy = returnId === r.id;
+                      const alreadyReturned = r.borrower_returned;
+                      return (
+                        <RequestRow key={r.id} req={r} viewerIsLender={false}>
+                          {alreadyReturned ? (
+                            <Button size="sm" variant="outline" disabled>
+                              <Hourglass className="h-3.5 w-3.5 mr-1" /> Waiting for lender to confirm return
+                            </Button>
+                          ) : (
+                            <Button
+                              size="sm"
+                              onClick={() =>
+                                returnMutation.mutate({ id: r.id, side: "outgoing" })
+                              }
+                              disabled={busy}
+                            >
+                              {busy ? (
+                                <><Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> Confirming…</>
+                              ) : (
+                                <><Undo2 className="h-3.5 w-3.5 mr-1" /> I returned the book</>
+                              )}
+                            </Button>
+                          )}
+                        </RequestRow>
+                      );
+                    })
+                  )}
+                </Section>
+
                 {outgoingHistory.length > 0 && (
                   <Section title="History" icon={<CheckCircle2 className="h-4 w-4" />} count={outgoingHistory.length}>
                     {outgoingHistory.map((r) => (
