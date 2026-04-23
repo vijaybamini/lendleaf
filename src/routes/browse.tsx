@@ -12,8 +12,8 @@ import { Feed } from "@/components/Feed";
 
 export const Route = createFileRoute("/browse")({
   component: BrowsePage,
-  validateSearch: (search: Record<string, unknown>) => ({
-    tab: (search.tab === "posts" ? "posts" : "books") as "books" | "posts",
+  validateSearch: (search: Record<string, unknown>): { tab?: "books" | "posts" } => ({
+    tab: search.tab === "posts" ? "posts" : search.tab === "books" ? "books" : undefined,
   }),
   head: () => ({
     meta: [
