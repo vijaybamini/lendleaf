@@ -48,7 +48,8 @@ function BrowsePage() {
   const { user, loading: authLoading } = useAuth();
   const { credits } = useCredits();
   const navigate = useNavigate();
-  const { tab } = Route.useSearch();
+  const search = Route.useSearch();
+  const tab = search.tab ?? "books";
 
   const setTab = (next: "books" | "posts") => {
     navigate({ to: "/browse", search: { tab: next } });
