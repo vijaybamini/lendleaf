@@ -306,15 +306,17 @@ function RequestsPage() {
   // Incoming buckets (lender's perspective)
   const incomingPending = incoming.filter((r) => r.status === "pending");
   const incomingAccepted = incoming.filter((r) => r.status === "accepted");
+  const incomingActive = incoming.filter((r) => r.status === "active");
   const incomingHistory = incoming.filter((r) =>
-    ["active", "completed", "rejected"].includes(r.status),
+    ["completed", "rejected"].includes(r.status),
   );
 
   // Outgoing buckets (borrower's perspective)
   const outgoingPending = outgoing.filter((r) => r.status === "pending");
   const outgoingAccepted = outgoing.filter((r) => r.status === "accepted");
+  const outgoingActive = outgoing.filter((r) => r.status === "active");
   const outgoingHistory = outgoing.filter((r) =>
-    ["active", "completed", "rejected"].includes(r.status),
+    ["completed", "rejected"].includes(r.status),
   );
 
   const respondingId = respondMutation.isPending
@@ -322,6 +324,9 @@ function RequestsPage() {
     : undefined;
   const handoverId = handoverMutation.isPending
     ? handoverMutation.variables?.id
+    : undefined;
+  const returnId = returnMutation.isPending
+    ? returnMutation.variables?.id
     : undefined;
 
   const isLoading = incomingLoading || outgoingLoading;
