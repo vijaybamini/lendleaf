@@ -587,7 +587,7 @@ export function Feed() {
                   )}
 
                   {/* Action bar (Instagram-style) */}
-                  <div className="flex items-center gap-1 px-2 sm:px-3 mt-3 border-t mt-4 pt-1">
+                  <div className="flex items-center gap-1 px-2 sm:px-3 mt-4 border-t pt-1">
                     <button
                       onClick={() => handleLike(post)}
                       className={`flex items-center gap-1.5 px-3 py-2 rounded-md hover:bg-muted transition-colors text-sm ${
