@@ -472,14 +472,53 @@ export function Feed() {
                     </>
                   )}
                 </div>
+
+                {/* Image preview */}
+                {imagePreview && (
+                  <div className="relative mt-3 rounded-lg overflow-hidden border bg-muted">
+                    <img
+                      src={imagePreview}
+                      alt="Selected"
+                      className="w-full max-h-80 object-cover"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleImagePick(null)}
+                      className="absolute top-2 right-2 bg-background/90 hover:bg-background rounded-full p-1.5 shadow"
+                      aria-label="Remove image"
+                    >
+                      <XIcon className="h-4 w-4" />
+                    </button>
+                  </div>
+                )}
+
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => handleImagePick(e.target.files?.[0] ?? null)}
+                />
+
                 <div className="flex items-center justify-between mt-3 gap-2">
-                  <span className="text-xs text-muted-foreground">
-                    {newContent.length}/2000
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="p-2 rounded-full hover:bg-muted text-muted-foreground hover:text-primary transition-colors"
+                      title="Add image"
+                      aria-label="Add image"
+                    >
+                      <ImagePlus className="h-5 w-5" />
+                    </button>
+                    <span className="text-xs text-muted-foreground">
+                      {newContent.length}/2000
+                    </span>
+                  </div>
                   <Button
                     size="sm"
                     onClick={handlePost}
-                    disabled={posting || !newContent.trim()}
+                    disabled={posting || (!newContent.trim() && !imageFile)}
                     className="rounded-full px-5"
                   >
                     {posting ? (
