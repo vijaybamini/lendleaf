@@ -1,6 +1,6 @@
 import { Link, useNavigate, useLocation, useSearch } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { BookMarked, LogOut, Leaf, Search, Library, Inbox } from "lucide-react";
+import { BookMarked, LogOut, Leaf, Search, Library, Inbox, MessageCircle } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { useCredits } from "@/hooks/use-credits";
 import { Button } from "@/components/ui/button";
@@ -84,6 +84,11 @@ export function SiteHeader() {
               <Button asChild variant="ghost" size="icon" title="Requests" aria-label="Requests">
                 <Link to="/requests">
                   <Inbox className="h-5 w-5" />
+                </Link>
+              </Button>
+              <Button asChild variant="ghost" size="icon" title="Messages" aria-label="Messages">
+                <Link to="/messages" search={{ to: undefined }}>
+                  <MessageCircle className="h-5 w-5" />
                 </Link>
               </Button>
               {credits !== null && (

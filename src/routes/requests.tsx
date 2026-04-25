@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -15,6 +15,7 @@ import {
   Hourglass,
   PackageCheck,
   Undo2,
+  MessageCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -653,7 +654,17 @@ function RequestRow({
           </div>
           <div>{statusBadge(req, viewerIsLender)}</div>
         </div>
-        {children && <div className="mt-3 flex gap-2 flex-wrap">{children}</div>}
+        <div className="mt-3 flex gap-2 flex-wrap items-center">
+          {children}
+          {req.counterparty && (
+            <Button asChild variant="outline" size="sm">
+              <Link to="/messages" search={{ to: req.counterparty.id }}>
+                <MessageCircle className="h-4 w-4 mr-1.5" />
+                Message
+              </Link>
+            </Button>
+          )}
+        </div>
       </div>
     </article>
   );

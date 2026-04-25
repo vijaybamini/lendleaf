@@ -50,6 +50,33 @@ export type Database = {
         }
         Relationships: []
       }
+      messages: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          read: boolean
+          recipient_id: string
+          sender_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          read?: boolean
+          recipient_id: string
+          sender_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          read?: boolean
+          recipient_id?: string
+          sender_id?: string
+        }
+        Relationships: []
+      }
       post_comments: {
         Row: {
           author_id: string
@@ -119,6 +146,7 @@ export type Database = {
           created_at: string
           hashtags: string[]
           id: string
+          image_url: string | null
           tagged_book_author: string | null
           tagged_book_title: string | null
           updated_at: string
@@ -130,6 +158,7 @@ export type Database = {
           created_at?: string
           hashtags?: string[]
           id?: string
+          image_url?: string | null
           tagged_book_author?: string | null
           tagged_book_title?: string | null
           updated_at?: string
@@ -141,6 +170,7 @@ export type Database = {
           created_at?: string
           hashtags?: string[]
           id?: string
+          image_url?: string | null
           tagged_book_author?: string | null
           tagged_book_title?: string | null
           updated_at?: string

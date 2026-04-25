@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import {
   Heart,
@@ -8,6 +8,9 @@ import {
   Send,
   Hash,
   Trash2,
+  ImagePlus,
+  X as XIcon,
+  MessageSquare,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -36,6 +39,7 @@ interface PostRow {
   tagged_book_title: string | null;
   tagged_book_author: string | null;
   hashtags: string[];
+  image_url: string | null;
   created_at: string;
 }
 
@@ -109,6 +113,9 @@ export function Feed() {
   const [myBooks, setMyBooks] = useState<BookLite[]>([]);
   const [selectedShelfBookId, setSelectedShelfBookId] = useState<string>("");
   const [posting, setPosting] = useState(false);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const fetchPosts = useCallback(async () => {
     setLoading(true);
@@ -209,11 +216,40 @@ export function Feed() {
       .map(([t]) => t);
   }, [posts]);
 
+  const handleImagePick = (file: File | null) => {
+    if (!file) {
+      setImageFile(null);
+      setImagePreview(null);
+      return;
+    }
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please choose an image file");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Image must be under 5MB");
+      return;
+    }
+    setImageFile(file);
+    setImagePreview(URL.createObjectURL(file));
+  };
+
+  const clearComposer = () => {
+    setNewContent("");
+    setNewBookTitle("");
+    setNewBookAuthor("");
+    setSelectedShelfBookId("");
+    setImageFile(null);
+    if (imagePreview) URL.revokeObjectURL(imagePreview);
+    setImagePreview(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
   const handlePost = async () => {
     if (!user) return;
     const content = newContent.trim();
-    if (!content) {
-      toast.error("Write something first");
+    if (!content && !imageFile) {
+      toast.error("Write something or add an image first");
       return;
     }
     if (content.length > 2000) {
@@ -240,6 +276,27 @@ export function Feed() {
 
     const hashtags = extractHashtags(content);
 
+    // Upload image if present
+    let image_url: string | null = null;
+    if (imageFile) {
+      const ext = imageFile.name.split(".").pop()?.toLowerCase() || "jpg";
+      const path = `${user.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+      const { error: upErr } = await supabase.storage
+        .from("post-images")
+        .upload(path, imageFile, {
+          cacheControl: "3600",
+          upsert: false,
+          contentType: imageFile.type,
+        });
+      if (upErr) {
+        setPosting(false);
+        toast.error(upErr.message || "Couldn't upload image");
+        return;
+      }
+      const { data: pub } = supabase.storage.from("post-images").getPublicUrl(path);
+      image_url = pub.publicUrl;
+    }
+
     const { error } = await supabase.from("posts").insert({
       author_id: user.id,
       content,
@@ -247,6 +304,7 @@ export function Feed() {
       tagged_book_title,
       tagged_book_author,
       hashtags,
+      image_url,
     });
 
     setPosting(false);
@@ -254,10 +312,7 @@ export function Feed() {
       toast.error(error.message || "Couldn't post");
       return;
     }
-    setNewContent("");
-    setNewBookTitle("");
-    setNewBookAuthor("");
-    setSelectedShelfBookId("");
+    clearComposer();
     toast.success("Posted!");
     fetchPosts();
   };
@@ -417,14 +472,53 @@ export function Feed() {
                     </>
                   )}
                 </div>
+
+                {/* Image preview */}
+                {imagePreview && (
+                  <div className="relative mt-3 rounded-lg overflow-hidden border bg-muted">
+                    <img
+                      src={imagePreview}
+                      alt="Selected"
+                      className="w-full max-h-80 object-cover"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleImagePick(null)}
+                      className="absolute top-2 right-2 bg-background/90 hover:bg-background rounded-full p-1.5 shadow"
+                      aria-label="Remove image"
+                    >
+                      <XIcon className="h-4 w-4" />
+                    </button>
+                  </div>
+                )}
+
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => handleImagePick(e.target.files?.[0] ?? null)}
+                />
+
                 <div className="flex items-center justify-between mt-3 gap-2">
-                  <span className="text-xs text-muted-foreground">
-                    {newContent.length}/2000
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="p-2 rounded-full hover:bg-muted text-muted-foreground hover:text-primary transition-colors"
+                      title="Add image"
+                      aria-label="Add image"
+                    >
+                      <ImagePlus className="h-5 w-5" />
+                    </button>
+                    <span className="text-xs text-muted-foreground">
+                      {newContent.length}/2000
+                    </span>
+                  </div>
                   <Button
                     size="sm"
                     onClick={handlePost}
-                    disabled={posting || !newContent.trim()}
+                    disabled={posting || (!newContent.trim() && !imageFile)}
                     className="rounded-full px-5"
                   >
                     {posting ? (
@@ -520,7 +614,7 @@ export function Feed() {
                         {timeAgo(post.created_at)}
                       </p>
                     </div>
-                    {isMine && (
+                    {isMine ? (
                       <button
                         onClick={() => handleDeletePost(post.id)}
                         className="text-muted-foreground hover:text-destructive p-1.5 rounded-full hover:bg-muted transition-colors"
@@ -528,15 +622,39 @@ export function Feed() {
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>
-                    )}
+                    ) : user ? (
+                      <Link
+                        to="/messages"
+                        search={{ to: post.author_id }}
+                        className="text-muted-foreground hover:text-primary p-1.5 rounded-full hover:bg-muted transition-colors"
+                        aria-label={`Message ${displayName}`}
+                        title={`Message ${displayName}`}
+                      >
+                        <MessageSquare className="h-4 w-4" />
+                      </Link>
+                    ) : null}
                   </div>
 
                   {/* Content */}
-                  <div className="px-4 sm:px-5 pt-3">
-                    <p className="text-[15px] sm:text-base leading-relaxed whitespace-pre-wrap break-words font-serif">
-                      {renderContent(post.content, (t) => setActiveTag(t))}
-                    </p>
-                  </div>
+                  {post.content && (
+                    <div className="px-4 sm:px-5 pt-3">
+                      <p className="text-[15px] sm:text-base leading-relaxed whitespace-pre-wrap break-words font-serif">
+                        {renderContent(post.content, (t) => setActiveTag(t))}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Image */}
+                  {post.image_url && (
+                    <div className="mt-3 bg-muted">
+                      <img
+                        src={post.image_url}
+                        alt=""
+                        className="w-full max-h-[600px] object-cover"
+                        loading="lazy"
+                      />
+                    </div>
+                  )}
 
                   {/* Tagged book card — Instagram-style media block */}
                   {(post.book || post.tagged_book_title) && (
