@@ -27,7 +27,7 @@ function LoginPage() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    if (user) navigate({ to: "/shelf" });
+    if (user) navigate({ to: "/browse" });
   }, [user, navigate]);
 
   const onSubmit = async (e: FormEvent) => {
@@ -47,7 +47,7 @@ function LoginPage() {
       return;
     }
     toast.success("Welcome back");
-    navigate({ to: "/shelf" });
+    navigate({ to: "/browse" });
   };
 
   return (

@@ -40,8 +40,8 @@ function Landing() {
                 <div className="mt-8 flex flex-wrap gap-3">
                   {user ? (
                     <Button asChild size="lg">
-                      <Link to="/shelf">
-                        Go to my shelf <ArrowRight className="ml-1 h-4 w-4" />
+                      <Link to="/browse">
+                        Browse books <ArrowRight className="ml-1 h-4 w-4" />
                       </Link>
                     </Button>
                   ) : (
