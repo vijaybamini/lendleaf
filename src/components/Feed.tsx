@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import {
   Heart,
@@ -8,6 +8,9 @@ import {
   Send,
   Hash,
   Trash2,
+  ImagePlus,
+  X as XIcon,
+  MessageSquare,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -36,6 +39,7 @@ interface PostRow {
   tagged_book_title: string | null;
   tagged_book_author: string | null;
   hashtags: string[];
+  image_url: string | null;
   created_at: string;
 }
 
@@ -109,6 +113,9 @@ export function Feed() {
   const [myBooks, setMyBooks] = useState<BookLite[]>([]);
   const [selectedShelfBookId, setSelectedShelfBookId] = useState<string>("");
   const [posting, setPosting] = useState(false);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const fetchPosts = useCallback(async () => {
     setLoading(true);
