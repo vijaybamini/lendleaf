@@ -25,9 +25,9 @@ export function SiteHeader() {
   const submitSearch = (value: string) => {
     navigate({
       to: "/browse",
-      search: (prev: Record<string, unknown>) => ({
+      search: (prev) => ({
         ...prev,
-        tab: "books",
+        tab: "books" as const,
         q: value.trim() || undefined,
       }),
     });
