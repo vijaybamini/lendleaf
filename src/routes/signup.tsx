@@ -29,7 +29,7 @@ function SignupPage() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    if (user) navigate({ to: "/shelf" });
+    if (user) navigate({ to: "/browse" });
   }, [user, navigate]);
 
   const onSubmit = async (e: FormEvent) => {
@@ -45,7 +45,7 @@ function SignupPage() {
       email: parsed.data.email,
       password: parsed.data.password,
       options: {
-        emailRedirectTo: `${window.location.origin}/shelf`,
+        emailRedirectTo: `${window.location.origin}/browse`,
         data: { display_name: parsed.data.displayName },
       },
     });
@@ -56,7 +56,7 @@ function SignupPage() {
       return;
     }
     toast.success("Welcome to LendLeaf");
-    navigate({ to: "/shelf" });
+    navigate({ to: "/browse" });
   };
 
   return (
