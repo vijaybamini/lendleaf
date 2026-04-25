@@ -614,7 +614,7 @@ export function Feed() {
                         {timeAgo(post.created_at)}
                       </p>
                     </div>
-                    {isMine && (
+                    {isMine ? (
                       <button
                         onClick={() => handleDeletePost(post.id)}
                         className="text-muted-foreground hover:text-destructive p-1.5 rounded-full hover:bg-muted transition-colors"
@@ -622,15 +622,39 @@ export function Feed() {
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>
-                    )}
+                    ) : user ? (
+                      <Link
+                        to="/messages"
+                        search={{ to: post.author_id }}
+                        className="text-muted-foreground hover:text-primary p-1.5 rounded-full hover:bg-muted transition-colors"
+                        aria-label={`Message ${displayName}`}
+                        title={`Message ${displayName}`}
+                      >
+                        <MessageSquare className="h-4 w-4" />
+                      </Link>
+                    ) : null}
                   </div>
 
                   {/* Content */}
-                  <div className="px-4 sm:px-5 pt-3">
-                    <p className="text-[15px] sm:text-base leading-relaxed whitespace-pre-wrap break-words font-serif">
-                      {renderContent(post.content, (t) => setActiveTag(t))}
-                    </p>
-                  </div>
+                  {post.content && (
+                    <div className="px-4 sm:px-5 pt-3">
+                      <p className="text-[15px] sm:text-base leading-relaxed whitespace-pre-wrap break-words font-serif">
+                        {renderContent(post.content, (t) => setActiveTag(t))}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Image */}
+                  {post.image_url && (
+                    <div className="mt-3 bg-muted">
+                      <img
+                        src={post.image_url}
+                        alt=""
+                        className="w-full max-h-[600px] object-cover"
+                        loading="lazy"
+                      />
+                    </div>
+                  )}
 
                   {/* Tagged book card — Instagram-style media block */}
                   {(post.book || post.tagged_book_title) && (
