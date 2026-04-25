@@ -1,19 +1,21 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { BookOpen, Loader2, Leaf, Clock, Check, MessageCircle } from "lucide-react";
+import { BookOpen, Loader2, Leaf, Clock, Check, MessageCircle, Search } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { useCredits } from "@/hooks/use-credits";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Feed } from "@/components/Feed";
 
 export const Route = createFileRoute("/browse")({
   component: BrowsePage,
-  validateSearch: (search: Record<string, unknown>): { tab?: "books" | "posts" } => ({
+  validateSearch: (search: Record<string, unknown>): { tab?: "books" | "posts"; q?: string } => ({
     tab: search.tab === "posts" ? "posts" : search.tab === "books" ? "books" : undefined,
+    q: typeof search.q === "string" && search.q.length > 0 ? search.q : undefined,
   }),
   head: () => ({
     meta: [
@@ -42,7 +44,7 @@ interface OwnerProfile {
   display_name: string | null;
 }
 
-type FilterKey = "all" | "available" | "mine";
+type FilterKey = "all" | "available";
 
 function BrowsePage() {
   const { user, loading: authLoading } = useAuth();
@@ -50,29 +52,32 @@ function BrowsePage() {
   const navigate = useNavigate();
   const search = Route.useSearch();
   const tab = search.tab ?? "books";
+  const query = search.q ?? "";
 
   const setTab = (next: "books" | "posts") => {
-    navigate({ to: "/browse", search: { tab: next } });
+    navigate({ to: "/browse", search: (prev) => ({ ...prev, tab: next }) });
   };
 
   return (
     <div className="min-h-screen flex flex-col">
       <SiteHeader />
 
-      <main className="flex-1 container mx-auto px-4 max-w-6xl py-10">
-        <div className="flex items-end justify-between flex-wrap gap-4 mb-6">
-          <div>
-            <h1 className="font-serif text-4xl md:text-5xl font-semibold">
+      <main className="flex-1 container mx-auto px-3 sm:px-4 max-w-6xl py-6 sm:py-10">
+        <div className="flex items-end justify-between flex-wrap gap-3 mb-5 sm:mb-6">
+          <div className="min-w-0">
+            <h1 className="font-serif text-3xl sm:text-4xl md:text-5xl font-semibold">
               {tab === "posts" ? "Community" : "Browse"}
             </h1>
-            <p className="text-muted-foreground mt-1">
+            <p className="text-muted-foreground mt-1 text-sm sm:text-base">
               {tab === "posts"
-                ? "Thoughts, reviews, and discussions from LendLeaf members"
-                : "The full LendLeaf library"}
+                ? "Thoughts and discussions from members"
+                : query
+                  ? `Results for "${query}"`
+                  : "The full LendLeaf library"}
             </p>
           </div>
           {user && (
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 text-primary text-sm font-medium">
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 text-primary text-xs sm:text-sm font-medium">
               <Leaf className="h-4 w-4" />
               <span>
                 {credits ?? 0} Leaf Credit{credits === 1 ? "" : "s"}
@@ -81,10 +86,10 @@ function BrowsePage() {
           )}
         </div>
 
-        <div className="inline-flex rounded-md border bg-card p-1 mb-8">
+        <div className="inline-flex rounded-md border bg-card p-1 mb-6 sm:mb-8">
           <button
             onClick={() => setTab("books")}
-            className={`px-4 py-1.5 text-sm rounded-sm transition-colors flex items-center gap-1.5 ${
+            className={`px-3 sm:px-4 py-1.5 text-sm rounded-sm transition-colors flex items-center gap-1.5 ${
               tab === "books"
                 ? "bg-primary text-primary-foreground"
                 : "text-muted-foreground hover:text-foreground"
@@ -94,7 +99,7 @@ function BrowsePage() {
           </button>
           <button
             onClick={() => setTab("posts")}
-            className={`px-4 py-1.5 text-sm rounded-sm transition-colors flex items-center gap-1.5 ${
+            className={`px-3 sm:px-4 py-1.5 text-sm rounded-sm transition-colors flex items-center gap-1.5 ${
               tab === "posts"
                 ? "bg-primary text-primary-foreground"
                 : "text-muted-foreground hover:text-foreground"
@@ -113,7 +118,7 @@ function BrowsePage() {
         ) : !user ? (
           <SignInPrompt />
         ) : (
-          <BooksList user={user} credits={credits} />
+          <BooksList user={user} credits={credits} query={query} />
         )}
       </main>
     </div>
@@ -149,16 +154,24 @@ function SignInPrompt() {
 function BooksList({
   user,
   credits,
+  query,
 }: {
   user: { id: string };
   credits: number | null;
+  query: string;
 }) {
+  const navigate = useNavigate();
   const [books, setBooks] = useState<BrowseBook[]>([]);
   const [owners, setOwners] = useState<Record<string, OwnerProfile>>({});
   const [requestedBookIds, setRequestedBookIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [requesting, setRequesting] = useState<string | null>(null);
-  const [filter, setFilter] = useState<FilterKey>("all");
+  const [filter, setFilter] = useState<FilterKey>("available");
+  const [localQuery, setLocalQuery] = useState(query);
+
+  useEffect(() => {
+    setLocalQuery(query);
+  }, [query]);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -222,27 +235,41 @@ function BooksList({
   };
 
   const visibleBooks = useMemo(() => {
+    let list = books;
     if (filter === "available") {
-      return books.filter((b) => b.owner_id !== user.id && b.status === "available");
+      list = list.filter((b) => b.owner_id !== user.id && b.status === "available");
     }
-    if (filter === "mine") {
-      return books.filter((b) => b.owner_id === user.id);
+    if (query) {
+      const q = query.toLowerCase();
+      list = list.filter(
+        (b) =>
+          b.title.toLowerCase().includes(q) ||
+          (b.author ?? "").toLowerCase().includes(q) ||
+          (b.isbn ?? "").toLowerCase().includes(q),
+      );
     }
-    return books;
-  }, [books, filter, user.id]);
+    return list;
+  }, [books, filter, user.id, query]);
 
   const noCredits = (credits ?? 0) <= 0;
 
   const filterOptions: { key: FilterKey; label: string }[] = [
-    { key: "all", label: "All books" },
     { key: "available", label: "Available to borrow" },
-    { key: "mine", label: "My books" },
+    { key: "all", label: "All books" },
   ];
+
+  const updateQuery = (value: string) => {
+    setLocalQuery(value);
+    navigate({
+      to: "/browse",
+      search: (prev) => ({ ...prev, q: value.trim() || undefined }),
+    });
+  };
 
   return (
     <>
       {noCredits && (
-        <div className="mb-6 paper-card rounded-md p-4 text-sm">
+        <div className="mb-5 paper-card rounded-md p-4 text-sm">
           You're out of Leaf Credits. Lend one of{" "}
           <Link to="/shelf" className="underline font-medium">
             your books
@@ -251,13 +278,28 @@ function BooksList({
         </div>
       )}
 
-      <div className="flex items-center justify-between flex-wrap gap-3 mb-6">
+      {/* Mobile-only inline search (header search hidden on tiny screens) */}
+      <div className="sm:hidden mb-4">
+        <div className="relative">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+          <Input
+            type="search"
+            value={localQuery}
+            onChange={(e) => updateQuery(e.target.value)}
+            placeholder="Search books to borrow…"
+            className="pl-8 h-9"
+            aria-label="Search books"
+          />
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between flex-wrap gap-3 mb-5 sm:mb-6">
         <div className="inline-flex rounded-md border bg-card p-1">
           {filterOptions.map((opt) => (
             <button
               key={opt.key}
               onClick={() => setFilter(opt.key)}
-              className={`px-3 py-1.5 text-sm rounded-sm transition-colors ${
+              className={`px-3 py-1.5 text-xs sm:text-sm rounded-sm transition-colors ${
                 filter === opt.key
                   ? "bg-primary text-primary-foreground"
                   : "text-muted-foreground hover:text-foreground"
@@ -268,8 +310,8 @@ function BooksList({
           ))}
         </div>
         {!loading && (
-          <p className="text-sm text-muted-foreground">
-            Showing {visibleBooks.length} of {books.length} book
+          <p className="text-xs sm:text-sm text-muted-foreground">
+            {visibleBooks.length} of {books.length} book
             {books.length === 1 ? "" : "s"}
           </p>
         )}
@@ -288,16 +330,20 @@ function BooksList({
           <h2 className="font-serif text-2xl font-semibold mb-2">
             {books.length === 0
               ? "No books on LendLeaf yet"
-              : "No books match this filter"}
+              : query
+                ? "No books match your search"
+                : "No books match this filter"}
           </h2>
           <p className="text-muted-foreground max-w-sm mx-auto">
             {books.length === 0
               ? "When members add books to their shelves, they'll appear here."
-              : "Try a different filter to see more books."}
+              : query
+                ? "Try a different title, author, or ISBN."
+                : "Try a different filter to see more books."}
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
           {visibleBooks.map((book) => {
             const isMine = book.owner_id === user.id;
             const isLent = book.status !== "available";
@@ -322,12 +368,12 @@ function BooksList({
                 </div>
                 <div className="flex-1 min-w-0 flex flex-col">
                   <div className="flex items-start gap-2">
-                    <h3 className="font-serif font-semibold leading-snug line-clamp-2 flex-1">
+                    <h3 className="font-serif font-semibold leading-snug line-clamp-2 flex-1 text-sm sm:text-base">
                       {book.title}
                     </h3>
                     {isMine && (
                       <span className="text-[10px] uppercase tracking-wide font-medium px-1.5 py-0.5 rounded bg-primary/10 text-primary flex-shrink-0">
-                        Your book
+                        Yours
                       </span>
                     )}
                     {!isMine && isLent && (
@@ -370,7 +416,7 @@ function BooksList({
                                 disabled
                                 className="w-full pointer-events-none"
                               >
-                                <Clock className="h-3.5 w-3.5 mr-1" /> Request to Borrow
+                                <Clock className="h-3.5 w-3.5 mr-1" /> Request
                               </Button>
                             </span>
                           </TooltipTrigger>
@@ -393,7 +439,7 @@ function BooksList({
                           </>
                         ) : (
                           <>
-                            <Clock className="h-3.5 w-3.5 mr-1" /> Request to Borrow
+                            <Clock className="h-3.5 w-3.5 mr-1" /> Request
                           </>
                         )}
                       </Button>

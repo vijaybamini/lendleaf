@@ -359,77 +359,91 @@ export function Feed() {
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[1fr_240px] gap-6">
-      <div className="space-y-6">
+      <div className="space-y-4 sm:space-y-5">
         {/* Composer */}
         {user ? (
-          <div className="paper-card rounded-lg p-4">
-            <Textarea
-              placeholder="Share your thoughts on a book, an idea, or use #hashtags to start a discussion..."
-              value={newContent}
-              onChange={(e) => setNewContent(e.target.value)}
-              className="min-h-[90px] resize-none border-0 focus-visible:ring-0 px-0 shadow-none text-base"
-              maxLength={2000}
-            />
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-3">
-              {myBooks.length > 0 && (
-                <select
-                  value={selectedShelfBookId}
-                  onChange={(e) => {
-                    setSelectedShelfBookId(e.target.value);
-                    if (e.target.value) {
-                      setNewBookTitle("");
-                      setNewBookAuthor("");
-                    }
-                  }}
-                  className="text-sm rounded-md border border-input bg-transparent px-3 py-2"
-                >
-                  <option value="">Tag a book from your shelf…</option>
-                  {myBooks.map((b) => (
-                    <option key={b.id} value={b.id}>
-                      {b.title}
-                    </option>
-                  ))}
-                </select>
-              )}
-              {!selectedShelfBookId && (
-                <>
-                  <Input
-                    placeholder="Or tag any book title…"
-                    value={newBookTitle}
-                    onChange={(e) => setNewBookTitle(e.target.value)}
-                    maxLength={200}
-                  />
-                  {newBookTitle && (
-                    <Input
-                      placeholder="Author (optional)"
-                      value={newBookAuthor}
-                      onChange={(e) => setNewBookAuthor(e.target.value)}
-                      maxLength={200}
-                    />
+          <div className="paper-card rounded-xl p-3 sm:p-4">
+            <div className="flex gap-3">
+              <div className="h-9 w-9 rounded-full bg-primary/15 text-primary flex items-center justify-center font-semibold text-sm flex-shrink-0">
+                {((user.user_metadata as { display_name?: string })?.display_name ?? user.email ?? "?")
+                  .slice(0, 1)
+                  .toUpperCase()}
+              </div>
+              <div className="flex-1 min-w-0">
+                <Textarea
+                  placeholder="What's on your mind? Use #tags for topics."
+                  value={newContent}
+                  onChange={(e) => setNewContent(e.target.value)}
+                  className="min-h-[70px] resize-none border-0 focus-visible:ring-0 px-0 shadow-none text-base"
+                  maxLength={2000}
+                />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
+                  {myBooks.length > 0 && (
+                    <select
+                      value={selectedShelfBookId}
+                      onChange={(e) => {
+                        setSelectedShelfBookId(e.target.value);
+                        if (e.target.value) {
+                          setNewBookTitle("");
+                          setNewBookAuthor("");
+                        }
+                      }}
+                      className="text-sm rounded-md border border-input bg-transparent px-3 py-2"
+                    >
+                      <option value="">Tag a book from your shelf…</option>
+                      {myBooks.map((b) => (
+                        <option key={b.id} value={b.id}>
+                          {b.title}
+                        </option>
+                      ))}
+                    </select>
                   )}
-                </>
-              )}
-            </div>
-            <div className="flex items-center justify-between mt-3">
-              <span className="text-xs text-muted-foreground">
-                {newContent.length}/2000 · use #tags for topics
-              </span>
-              <Button onClick={handlePost} disabled={posting || !newContent.trim()}>
-                {posting ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
-                    Posting…
-                  </>
-                ) : (
-                  <>
-                    <Send className="h-4 w-4 mr-1.5" /> Post
-                  </>
-                )}
-              </Button>
+                  {!selectedShelfBookId && (
+                    <>
+                      <Input
+                        placeholder="Or tag any book title…"
+                        value={newBookTitle}
+                        onChange={(e) => setNewBookTitle(e.target.value)}
+                        maxLength={200}
+                      />
+                      {newBookTitle && (
+                        <Input
+                          placeholder="Author (optional)"
+                          value={newBookAuthor}
+                          onChange={(e) => setNewBookAuthor(e.target.value)}
+                          maxLength={200}
+                        />
+                      )}
+                    </>
+                  )}
+                </div>
+                <div className="flex items-center justify-between mt-3 gap-2">
+                  <span className="text-xs text-muted-foreground">
+                    {newContent.length}/2000
+                  </span>
+                  <Button
+                    size="sm"
+                    onClick={handlePost}
+                    disabled={posting || !newContent.trim()}
+                    className="rounded-full px-5"
+                  >
+                    {posting ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                        Posting…
+                      </>
+                    ) : (
+                      <>
+                        <Send className="h-4 w-4 mr-1.5" /> Post
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
             </div>
           </div>
         ) : (
-          <div className="paper-card rounded-lg p-4 text-sm text-muted-foreground flex items-center justify-between flex-wrap gap-3">
+          <div className="paper-card rounded-xl p-4 text-sm text-muted-foreground flex items-center justify-between flex-wrap gap-3">
             <span>Join the conversation — sign in to share your thoughts.</span>
             <div className="flex gap-2">
               <Link to="/login">
@@ -462,7 +476,7 @@ export function Feed() {
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
         ) : visiblePosts.length === 0 ? (
-          <div className="paper-card rounded-lg py-16 px-6 text-center">
+          <div className="paper-card rounded-xl py-16 px-6 text-center">
             <MessageCircle
               className="h-12 w-12 text-muted-foreground/60 mx-auto mb-4"
               strokeWidth={1.25}
@@ -477,10 +491,11 @@ export function Feed() {
             </p>
           </div>
         ) : (
-          <ul className="space-y-4">
+          <ul className="space-y-4 sm:space-y-5">
             {visiblePosts.map((post) => {
               const isMine = user?.id === post.author_id;
-              const initials = (post.author?.display_name ?? "?")
+              const displayName = post.author?.display_name ?? "Member";
+              const initials = displayName
                 .split(" ")
                 .map((p) => p[0])
                 .join("")
@@ -488,146 +503,174 @@ export function Feed() {
                 .toUpperCase();
               const commentsState = commentsByPost[post.id];
               return (
-                <li key={post.id} className="paper-card rounded-lg p-5">
-                  <div className="flex items-start gap-3">
-                    <div className="h-10 w-10 rounded-full bg-primary/15 text-primary flex items-center justify-center font-semibold text-sm flex-shrink-0">
+                <li
+                  key={post.id}
+                  className="paper-card rounded-xl overflow-hidden hover:shadow-md transition-shadow"
+                >
+                  {/* Header */}
+                  <div className="flex items-center gap-3 px-4 sm:px-5 pt-4">
+                    <div className="h-10 w-10 rounded-full bg-gradient-to-br from-primary/30 to-primary/10 text-primary flex items-center justify-center font-semibold text-sm flex-shrink-0 ring-2 ring-background">
                       {initials}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-2 flex-wrap">
-                        <div className="flex items-baseline gap-2 flex-wrap">
-                          <span className="font-medium">
-                            {post.author?.display_name ?? "Member"}
-                          </span>
-                          <span className="text-xs text-muted-foreground">
-                            · {timeAgo(post.created_at)}
-                          </span>
-                        </div>
-                        {isMine && (
-                          <button
-                            onClick={() => handleDeletePost(post.id)}
-                            className="text-muted-foreground hover:text-destructive p-1"
-                            aria-label="Delete post"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
+                      <p className="font-semibold text-sm leading-tight truncate">
+                        {displayName}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {timeAgo(post.created_at)}
+                      </p>
+                    </div>
+                    {isMine && (
+                      <button
+                        onClick={() => handleDeletePost(post.id)}
+                        className="text-muted-foreground hover:text-destructive p-1.5 rounded-full hover:bg-muted transition-colors"
+                        aria-label="Delete post"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Content */}
+                  <div className="px-4 sm:px-5 pt-3">
+                    <p className="text-[15px] sm:text-base leading-relaxed whitespace-pre-wrap break-words font-serif">
+                      {renderContent(post.content, (t) => setActiveTag(t))}
+                    </p>
+                  </div>
+
+                  {/* Tagged book card — Instagram-style media block */}
+                  {(post.book || post.tagged_book_title) && (
+                    <div className="mx-4 sm:mx-5 mt-3 flex items-center gap-3 p-3 rounded-lg border bg-gradient-to-br from-muted/40 to-muted/10">
+                      <div className="w-12 h-16 sm:w-14 sm:h-20 flex-shrink-0 bg-muted rounded-sm overflow-hidden shadow-book">
+                        {post.book?.cover_image ? (
+                          <img
+                            src={post.book.cover_image}
+                            alt=""
+                            className="w-full h-full object-cover"
+                            loading="lazy"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/30 to-primary/10">
+                            <BookOpen className="h-4 w-4 text-primary" />
+                          </div>
                         )}
                       </div>
-                      <p className="mt-2 text-[15px] leading-relaxed whitespace-pre-wrap break-words">
-                        {renderContent(post.content, (t) => setActiveTag(t))}
-                      </p>
-
-                      {(post.book || post.tagged_book_title) && (
-                        <div className="mt-3 flex items-center gap-3 p-3 rounded-md border bg-muted/30">
-                          <div className="w-10 h-14 flex-shrink-0 bg-muted rounded-sm overflow-hidden shadow-book">
-                            {post.book?.cover_image ? (
-                              <img
-                                src={post.book.cover_image}
-                                alt=""
-                                className="w-full h-full object-cover"
-                                loading="lazy"
-                              />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/30 to-primary/10">
-                                <BookOpen className="h-4 w-4 text-primary" />
-                              </div>
-                            )}
-                          </div>
-                          <div className="min-w-0">
-                            <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                              Tagged book
-                            </p>
-                            <p className="font-serif font-semibold text-sm leading-tight line-clamp-1">
-                              {post.book?.title ?? post.tagged_book_title}
-                            </p>
-                            {(post.book?.author ?? post.tagged_book_author) && (
-                              <p className="text-xs text-muted-foreground line-clamp-1">
-                                {post.book?.author ?? post.tagged_book_author}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                      )}
-
-                      <div className="mt-3 flex items-center gap-4 text-sm text-muted-foreground">
-                        <button
-                          onClick={() => handleLike(post)}
-                          className={`flex items-center gap-1.5 hover:text-foreground transition-colors ${
-                            post.likedByMe ? "text-primary" : ""
-                          }`}
-                        >
-                          <Heart
-                            className={`h-4 w-4 ${post.likedByMe ? "fill-current" : ""}`}
-                          />
-                          <span>{post.likeCount}</span>
-                        </button>
-                        <button
-                          onClick={() => toggleComments(post.id)}
-                          className="flex items-center gap-1.5 hover:text-foreground transition-colors"
-                        >
-                          <MessageCircle className="h-4 w-4" />
-                          <span>{post.commentCount}</span>
-                        </button>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
+                          📖 Tagged book
+                        </p>
+                        <p className="font-serif font-semibold text-sm leading-tight line-clamp-1 mt-0.5">
+                          {post.book?.title ?? post.tagged_book_title}
+                        </p>
+                        {(post.book?.author ?? post.tagged_book_author) && (
+                          <p className="text-xs text-muted-foreground line-clamp-1">
+                            by {post.book?.author ?? post.tagged_book_author}
+                          </p>
+                        )}
                       </div>
+                    </div>
+                  )}
 
-                      {openCommentsFor === post.id && (
-                        <div className="mt-4 pt-4 border-t space-y-3">
-                          {!commentsState ? (
-                            <div className="flex justify-center py-4">
-                              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                            </div>
-                          ) : (
-                            <>
-                              {commentsState.items.length === 0 ? (
-                                <p className="text-xs text-muted-foreground">
-                                  No comments yet.
-                                </p>
-                              ) : (
-                                <ul className="space-y-3">
-                                  {commentsState.items.map((c) => (
-                                    <li key={c.id} className="flex gap-2 text-sm">
-                                      <div className="h-7 w-7 rounded-full bg-muted text-xs flex items-center justify-center font-semibold flex-shrink-0">
-                                        {(commentsState.authors[c.author_id]
-                                          ?.display_name ?? "?")
-                                          .slice(0, 1)
-                                          .toUpperCase()}
-                                      </div>
-                                      <div className="flex-1 min-w-0">
-                                        <div className="flex items-baseline gap-2">
-                                          <span className="font-medium text-sm">
-                                            {commentsState.authors[c.author_id]
-                                              ?.display_name ?? "Member"}
-                                          </span>
-                                          <span className="text-xs text-muted-foreground">
-                                            {timeAgo(c.created_at)}
-                                          </span>
-                                        </div>
-                                        <p className="whitespace-pre-wrap break-words">
-                                          {c.content}
-                                        </p>
-                                      </div>
-                                    </li>
-                                  ))}
-                                </ul>
-                              )}
-                              {user ? (
-                                <CommentBox
-                                  onSubmit={(text) => handleAddComment(post.id, text)}
-                                />
-                              ) : (
-                                <p className="text-xs text-muted-foreground">
-                                  <Link to="/login" className="underline">
-                                    Sign in
-                                  </Link>{" "}
-                                  to comment.
-                                </p>
-                              )}
-                            </>
-                          )}
+                  {/* Hashtag chips (Medium-style) */}
+                  {post.hashtags.length > 0 && (
+                    <div className="px-4 sm:px-5 mt-3 flex flex-wrap gap-1.5">
+                      {post.hashtags.slice(0, 6).map((t) => (
+                        <button
+                          key={t}
+                          onClick={() => setActiveTag(t === activeTag ? null : t)}
+                          className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground hover:bg-primary/10 hover:text-primary transition-colors"
+                        >
+                          #{t}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Action bar (Instagram-style) */}
+                  <div className="flex items-center gap-1 px-2 sm:px-3 mt-4 border-t pt-1">
+                    <button
+                      onClick={() => handleLike(post)}
+                      className={`flex items-center gap-1.5 px-3 py-2 rounded-md hover:bg-muted transition-colors text-sm ${
+                        post.likedByMe ? "text-rose-500" : "text-muted-foreground"
+                      }`}
+                      aria-label="Like"
+                    >
+                      <Heart
+                        className={`h-5 w-5 transition-transform ${
+                          post.likedByMe ? "fill-current scale-110" : ""
+                        }`}
+                      />
+                      <span className="font-medium tabular-nums">{post.likeCount}</span>
+                    </button>
+                    <button
+                      onClick={() => toggleComments(post.id)}
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-md hover:bg-muted transition-colors text-sm text-muted-foreground"
+                      aria-label="Comments"
+                    >
+                      <MessageCircle className="h-5 w-5" />
+                      <span className="font-medium tabular-nums">
+                        {post.commentCount}
+                      </span>
+                    </button>
+                  </div>
+
+                  {/* Comments */}
+                  {openCommentsFor === post.id && (
+                    <div className="px-4 sm:px-5 pb-4 pt-3 border-t bg-muted/20 space-y-3">
+                      {!commentsState ? (
+                        <div className="flex justify-center py-4">
+                          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
                         </div>
+                      ) : (
+                        <>
+                          {commentsState.items.length === 0 ? (
+                            <p className="text-xs text-muted-foreground text-center py-2">
+                              No comments yet. Be the first.
+                            </p>
+                          ) : (
+                            <ul className="space-y-3">
+                              {commentsState.items.map((c) => (
+                                <li key={c.id} className="flex gap-2 text-sm">
+                                  <div className="h-7 w-7 rounded-full bg-primary/15 text-primary text-xs flex items-center justify-center font-semibold flex-shrink-0">
+                                    {(commentsState.authors[c.author_id]
+                                      ?.display_name ?? "?")
+                                      .slice(0, 1)
+                                      .toUpperCase()}
+                                  </div>
+                                  <div className="flex-1 min-w-0 bg-background rounded-2xl px-3 py-2">
+                                    <div className="flex items-baseline gap-2">
+                                      <span className="font-semibold text-sm">
+                                        {commentsState.authors[c.author_id]
+                                          ?.display_name ?? "Member"}
+                                      </span>
+                                      <span className="text-xs text-muted-foreground">
+                                        {timeAgo(c.created_at)}
+                                      </span>
+                                    </div>
+                                    <p className="whitespace-pre-wrap break-words text-sm">
+                                      {c.content}
+                                    </p>
+                                  </div>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                          {user ? (
+                            <CommentBox
+                              onSubmit={(text) => handleAddComment(post.id, text)}
+                            />
+                          ) : (
+                            <p className="text-xs text-muted-foreground">
+                              <Link to="/login" className="underline">
+                                Sign in
+                              </Link>{" "}
+                              to comment.
+                            </p>
+                          )}
+                        </>
                       )}
                     </div>
-                  </div>
+                  )}
                 </li>
               );
             })}
@@ -636,8 +679,8 @@ export function Feed() {
       </div>
 
       {/* Sidebar */}
-      <aside className="space-y-4 lg:sticky lg:top-24 self-start">
-        <div className="paper-card rounded-lg p-4">
+      <aside className="space-y-4 lg:sticky lg:top-24 self-start order-first lg:order-last">
+        <div className="paper-card rounded-xl p-4">
           <h3 className="font-serif font-semibold flex items-center gap-1.5 mb-3">
             <Hash className="h-4 w-4" /> Trending topics
           </h3>
