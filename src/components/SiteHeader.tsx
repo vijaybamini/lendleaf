@@ -1,4 +1,4 @@
-import { Link, useNavigate, useLocation } from "@tanstack/react-router";
+import { Link, useNavigate, useLocation, useSearch } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { BookMarked, LogOut, Leaf, Search, Library, Inbox } from "lucide-react";
 import { useAuth } from "@/lib/auth";
@@ -11,16 +11,15 @@ export function SiteHeader() {
   const { credits } = useCredits();
   const navigate = useNavigate();
   const location = useLocation();
+  const search = useSearch({ strict: false }) as { q?: string };
   const [query, setQuery] = useState("");
 
   // Sync local input with URL when on /browse
   useEffect(() => {
     if (location.pathname === "/browse") {
-      const params = new URLSearchParams(location.searchStr ?? location.search ?? "");
-      const q = params.get("q") ?? "";
-      setQuery(q);
+      setQuery(search.q ?? "");
     }
-  }, [location.pathname, location.searchStr, location.search]);
+  }, [location.pathname, search.q]);
 
   const submitSearch = (value: string) => {
     navigate({
