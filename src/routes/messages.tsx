@@ -406,7 +406,7 @@ function MessagesPage() {
                     className="md:hidden -ml-1"
                     aria-label="Back"
                   >
-                    <Link to="/messages">
+                    <Link to="/messages" search={{ to: undefined }}>
                       <ArrowLeft className="h-5 w-5" />
                     </Link>
                   </Button>
