@@ -216,11 +216,40 @@ export function Feed() {
       .map(([t]) => t);
   }, [posts]);
 
+  const handleImagePick = (file: File | null) => {
+    if (!file) {
+      setImageFile(null);
+      setImagePreview(null);
+      return;
+    }
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please choose an image file");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Image must be under 5MB");
+      return;
+    }
+    setImageFile(file);
+    setImagePreview(URL.createObjectURL(file));
+  };
+
+  const clearComposer = () => {
+    setNewContent("");
+    setNewBookTitle("");
+    setNewBookAuthor("");
+    setSelectedShelfBookId("");
+    setImageFile(null);
+    if (imagePreview) URL.revokeObjectURL(imagePreview);
+    setImagePreview(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
   const handlePost = async () => {
     if (!user) return;
     const content = newContent.trim();
-    if (!content) {
-      toast.error("Write something first");
+    if (!content && !imageFile) {
+      toast.error("Write something or add an image first");
       return;
     }
     if (content.length > 2000) {
@@ -247,6 +276,27 @@ export function Feed() {
 
     const hashtags = extractHashtags(content);
 
+    // Upload image if present
+    let image_url: string | null = null;
+    if (imageFile) {
+      const ext = imageFile.name.split(".").pop()?.toLowerCase() || "jpg";
+      const path = `${user.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+      const { error: upErr } = await supabase.storage
+        .from("post-images")
+        .upload(path, imageFile, {
+          cacheControl: "3600",
+          upsert: false,
+          contentType: imageFile.type,
+        });
+      if (upErr) {
+        setPosting(false);
+        toast.error(upErr.message || "Couldn't upload image");
+        return;
+      }
+      const { data: pub } = supabase.storage.from("post-images").getPublicUrl(path);
+      image_url = pub.publicUrl;
+    }
+
     const { error } = await supabase.from("posts").insert({
       author_id: user.id,
       content,
@@ -254,6 +304,7 @@ export function Feed() {
       tagged_book_title,
       tagged_book_author,
       hashtags,
+      image_url,
     });
 
     setPosting(false);
@@ -261,10 +312,7 @@ export function Feed() {
       toast.error(error.message || "Couldn't post");
       return;
     }
-    setNewContent("");
-    setNewBookTitle("");
-    setNewBookAuthor("");
-    setSelectedShelfBookId("");
+    clearComposer();
     toast.success("Posted!");
     fetchPosts();
   };
