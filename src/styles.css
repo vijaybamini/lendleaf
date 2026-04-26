@@ -123,4 +123,13 @@
     border: 1px solid var(--border);
     box-shadow: var(--shadow-paper);
   }
+
+  .chat-bg {
+    background-color: var(--chat-bg);
+    background-image:
+      radial-gradient(oklch(0.22 0.012 60 / 0.04) 1px, transparent 1px),
+      radial-gradient(oklch(0.22 0.012 60 / 0.03) 1px, transparent 1px);
+    background-size: 22px 22px, 11px 11px;
+    background-position: 0 0, 11px 11px;
+  }
 }
