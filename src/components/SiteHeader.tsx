@@ -42,7 +42,19 @@ export function SiteHeader() {
           </span>
         </Link>
 
-        {user && (
+        {user && location.pathname === "/" ? (
+          <div className="flex-1 flex justify-end mx-1 sm:mx-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              title="Search books"
+              aria-label="Search books"
+              onClick={() => navigate({ to: "/browse", search: { tab: "books" } })}
+            >
+              <Search className="h-5 w-5" />
+            </Button>
+          </div>
+        ) : user ? (
           <form
             onSubmit={(e) => {
               e.preventDefault();
@@ -71,7 +83,7 @@ export function SiteHeader() {
               />
             </div>
           </form>
-        )}
+        ) : null}
 
         <nav className="flex items-center gap-0.5 sm:gap-1 flex-shrink-0">
           {user ? (
