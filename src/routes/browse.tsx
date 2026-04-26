@@ -160,7 +160,6 @@ function BooksList({
   credits: number | null;
   query: string;
 }) {
-  const navigate = useNavigate();
   const [books, setBooks] = useState<BrowseBook[]>([]);
   const [owners, setOwners] = useState<Record<string, OwnerProfile>>({});
   const [requestedBookIds, setRequestedBookIds] = useState<Set<string>>(new Set());
