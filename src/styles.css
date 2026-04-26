@@ -80,6 +80,10 @@
 
   --shadow-paper: 0 1px 2px oklch(0.22 0.012 60 / 0.06), 0 8px 24px -8px oklch(0.22 0.012 60 / 0.12);
   --shadow-book: 0 4px 6px -2px oklch(0.22 0.012 60 / 0.1), 0 12px 30px -8px oklch(0.22 0.012 60 / 0.18);
+
+  /* Chat */
+  --chat-mine: oklch(0.88 0.08 145);          /* soft sage green for own bubbles */
+  --chat-bg: oklch(0.93 0.02 88);             /* warm paper for chat backdrop */
 }
 
 @layer base {
