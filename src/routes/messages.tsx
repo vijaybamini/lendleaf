@@ -521,7 +521,7 @@ function MessagesPage() {
                             <div
                               className={`max-w-[78%] px-3 py-1.5 text-sm whitespace-pre-wrap break-words shadow-sm relative ${
                                 mine
-                                  ? `bg-[hsl(var(--chat-mine))] text-foreground ${
+                                  ? `bg-[var(--chat-mine)] text-foreground ${
                                       isLastOfGroup
                                         ? "rounded-2xl rounded-br-md"
                                         : "rounded-2xl"
