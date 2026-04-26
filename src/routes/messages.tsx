@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
-import { Loader2, Send, MessageCircle, ArrowLeft } from "lucide-react";
+import { Loader2, Send, MessageCircle, ArrowLeft, Check, CheckCheck } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -42,16 +42,36 @@ interface ConversationSummary {
   unreadCount: number;
 }
 
-function timeAgo(iso: string) {
-  const diff = Date.now() - new Date(iso).getTime();
-  const mins = Math.floor(diff / 60_000);
-  if (mins < 1) return "now";
-  if (mins < 60) return `${mins}m`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h`;
-  const days = Math.floor(hours / 24);
-  if (days < 7) return `${days}d`;
-  return new Date(iso).toLocaleDateString();
+function timeShort(iso: string) {
+  const d = new Date(iso);
+  const now = new Date();
+  const sameDay =
+    d.getFullYear() === now.getFullYear() &&
+    d.getMonth() === now.getMonth() &&
+    d.getDate() === now.getDate();
+  if (sameDay) return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  const diffDays = Math.floor((now.getTime() - d.getTime()) / 86_400_000);
+  if (diffDays === 1) return "Yesterday";
+  if (diffDays < 7) return d.toLocaleDateString([], { weekday: "short" });
+  return d.toLocaleDateString();
+}
+
+function dayLabel(iso: string) {
+  const d = new Date(iso);
+  const now = new Date();
+  const isSameDay = (a: Date, b: Date) =>
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate();
+  if (isSameDay(d, now)) return "Today";
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+  if (isSameDay(d, yesterday)) return "Yesterday";
+  return d.toLocaleDateString([], { weekday: "long", day: "numeric", month: "short" });
+}
+
+function timeOnly(iso: string) {
+  return new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
 function initialsOf(name: string | null | undefined) {
@@ -77,6 +97,8 @@ function MessagesPage() {
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  // Track which partner's messages are currently loaded, so we don't reload on every conversation refresh
+  const loadedPartnerRef = useRef<string | null>(null);
 
   // Redirect if not logged in
   useEffect(() => {
@@ -87,7 +109,6 @@ function MessagesPage() {
 
   const loadConversations = useCallback(async () => {
     if (!user) return;
-    setLoadingConvs(true);
     const { data, error } = await supabase
       .from("messages")
       .select("*")
@@ -135,24 +156,40 @@ function MessagesPage() {
     setLoadingConvs(false);
   }, [user]);
 
+  // Initial conversation load
   useEffect(() => {
-    loadConversations();
-  }, [loadConversations]);
+    if (user) {
+      setLoadingConvs(true);
+      loadConversations();
+    }
+  }, [user, loadConversations]);
 
-  // Load messages when active partner changes
-  const loadMessages = useCallback(
-    async (partnerId: string) => {
-      if (!user) return;
-      setLoadingMsgs(true);
+  // Load messages when active partner changes — guarded so it only runs on actual partner change
+  useEffect(() => {
+    if (!user) return;
+    if (!activePartnerId) {
+      setMessages([]);
+      setActivePartner(null);
+      loadedPartnerRef.current = null;
+      return;
+    }
+    if (loadedPartnerRef.current === activePartnerId) return;
+    loadedPartnerRef.current = activePartnerId;
+
+    let cancelled = false;
+    setLoadingMsgs(true);
+
+    (async () => {
       const { data, error } = await supabase
         .from("messages")
         .select("*")
         .or(
-          `and(sender_id.eq.${user.id},recipient_id.eq.${partnerId}),and(sender_id.eq.${partnerId},recipient_id.eq.${user.id})`,
+          `and(sender_id.eq.${user.id},recipient_id.eq.${activePartnerId}),and(sender_id.eq.${activePartnerId},recipient_id.eq.${user.id})`,
         )
         .order("created_at", { ascending: true })
         .limit(500);
 
+      if (cancelled) return;
       if (error) {
         toast.error("Couldn't load messages");
         setLoadingMsgs(false);
@@ -161,27 +198,18 @@ function MessagesPage() {
       setMessages((data ?? []) as MessageRow[]);
       setLoadingMsgs(false);
 
-      // Mark unread messages from partner as read
+      // Mark unread partner messages as read
       await supabase
         .from("messages")
         .update({ read: true })
-        .eq("sender_id", partnerId)
+        .eq("sender_id", activePartnerId)
         .eq("recipient_id", user.id)
         .eq("read", false);
 
-      // Refresh conversation list to clear badges
       loadConversations();
-    },
-    [user, loadConversations],
-  );
+    })();
 
-  useEffect(() => {
-    if (!activePartnerId || !user) {
-      setMessages([]);
-      setActivePartner(null);
-      return;
-    }
-    // Find or fetch partner profile
+    // Resolve partner profile from cache or fetch
     const known = conversations.find((c) => c.partnerId === activePartnerId)?.partner;
     if (known) {
       setActivePartner(known);
@@ -192,11 +220,23 @@ function MessagesPage() {
         .eq("id", activePartnerId)
         .maybeSingle()
         .then(({ data }) => {
-          if (data) setActivePartner(data as ProfileLite);
+          if (!cancelled && data) setActivePartner(data as ProfileLite);
         });
     }
-    loadMessages(activePartnerId);
-  }, [activePartnerId, user, conversations, loadMessages]);
+
+    return () => {
+      cancelled = true;
+    };
+    // Intentionally exclude `conversations` to avoid reload loops
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activePartnerId, user, loadConversations]);
+
+  // Keep the active partner profile in sync once conversations load
+  useEffect(() => {
+    if (!activePartnerId) return;
+    const known = conversations.find((c) => c.partnerId === activePartnerId)?.partner;
+    if (known) setActivePartner((prev) => prev ?? known);
+  }, [conversations, activePartnerId]);
 
   // Realtime subscription for new messages
   useEffect(() => {
@@ -213,13 +253,12 @@ function MessagesPage() {
         },
         (payload) => {
           const m = payload.new as MessageRow;
-          // If chat with sender is open, append + mark read
           if (activePartnerId && m.sender_id === activePartnerId) {
-            setMessages((prev) => [...prev, m]);
-            supabase
-              .from("messages")
-              .update({ read: true })
-              .eq("id", m.id);
+            setMessages((prev) => {
+              if (prev.some((x) => x.id === m.id)) return prev;
+              return [...prev, m];
+            });
+            supabase.from("messages").update({ read: true }).eq("id", m.id);
           }
           loadConversations();
         },
@@ -312,16 +351,16 @@ function MessagesPage() {
   return (
     <div className="min-h-screen bg-background">
       <SiteHeader />
-      <main className="container mx-auto max-w-5xl px-2 sm:px-4 py-4 sm:py-6">
-        <div className="paper-card rounded-xl overflow-hidden grid grid-cols-1 md:grid-cols-[280px_1fr] min-h-[70vh]">
+      <main className="container mx-auto max-w-5xl px-0 sm:px-4 py-0 sm:py-6">
+        <div className="sm:paper-card sm:rounded-xl overflow-hidden grid grid-cols-1 md:grid-cols-[320px_1fr] h-[calc(100vh-64px)] sm:h-[calc(100vh-120px)]">
           {/* Conversation list — hidden on mobile when a chat is open */}
           <aside
-            className={`border-r bg-muted/20 ${
-              activePartnerId ? "hidden md:block" : "block"
+            className={`border-r bg-card flex flex-col ${
+              activePartnerId ? "hidden md:flex" : "flex"
             }`}
           >
-            <div className="px-4 py-3 border-b">
-              <h1 className="font-serif text-lg font-semibold">Messages</h1>
+            <div className="px-4 py-3 border-b flex items-center justify-between">
+              <h1 className="font-serif text-lg font-semibold">Chats</h1>
             </div>
             {loadingConvs ? (
               <div className="flex justify-center py-12">
@@ -334,19 +373,20 @@ function MessagesPage() {
                 borrow request.
               </div>
             ) : (
-              <ul className="divide-y">
+              <ul className="divide-y overflow-y-auto flex-1">
                 {sortedConversations.map((c) => {
                   const isActive = activePartnerId === c.partnerId;
+                  const isMine = c.lastMessage.sender_id === user.id;
                   return (
                     <li key={c.partnerId}>
                       <Link
                         to="/messages"
                         search={{ to: c.partnerId }}
-                        className={`flex gap-3 items-start px-4 py-3 hover:bg-muted/40 transition-colors ${
+                        className={`flex gap-3 items-center px-4 py-3 hover:bg-muted/40 transition-colors ${
                           isActive ? "bg-muted/50" : ""
                         }`}
                       >
-                        <div className="h-10 w-10 rounded-full bg-primary/15 text-primary flex items-center justify-center font-semibold text-sm flex-shrink-0">
+                        <div className="h-12 w-12 rounded-full bg-primary/15 text-primary flex items-center justify-center font-semibold text-sm flex-shrink-0">
                           {initialsOf(c.partner?.display_name)}
                         </div>
                         <div className="flex-1 min-w-0">
@@ -354,26 +394,42 @@ function MessagesPage() {
                             <p className="font-semibold text-sm truncate">
                               {c.partner?.display_name ?? "Member"}
                             </p>
-                            <span className="text-[10px] text-muted-foreground flex-shrink-0">
-                              {timeAgo(c.lastMessage.created_at)}
+                            <span
+                              className={`text-[10px] flex-shrink-0 ${
+                                c.unreadCount > 0
+                                  ? "text-primary font-semibold"
+                                  : "text-muted-foreground"
+                              }`}
+                            >
+                              {timeShort(c.lastMessage.created_at)}
                             </span>
                           </div>
-                          <p
-                            className={`text-xs truncate ${
-                              c.unreadCount > 0
-                                ? "text-foreground font-medium"
-                                : "text-muted-foreground"
-                            }`}
-                          >
-                            {c.lastMessage.sender_id === user.id ? "You: " : ""}
-                            {c.lastMessage.content}
-                          </p>
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            {isMine && (
+                              <span className="flex-shrink-0 text-muted-foreground">
+                                {c.lastMessage.read ? (
+                                  <CheckCheck className="h-3.5 w-3.5 text-primary" />
+                                ) : (
+                                  <Check className="h-3.5 w-3.5" />
+                                )}
+                              </span>
+                            )}
+                            <p
+                              className={`text-xs truncate flex-1 ${
+                                c.unreadCount > 0 && !isMine
+                                  ? "text-foreground font-medium"
+                                  : "text-muted-foreground"
+                              }`}
+                            >
+                              {c.lastMessage.content}
+                            </p>
+                            {c.unreadCount > 0 && (
+                              <span className="h-5 min-w-5 px-1.5 rounded-full bg-primary text-primary-foreground text-[10px] font-semibold flex items-center justify-center flex-shrink-0">
+                                {c.unreadCount}
+                              </span>
+                            )}
+                          </div>
                         </div>
-                        {c.unreadCount > 0 && (
-                          <span className="h-5 min-w-5 px-1.5 rounded-full bg-primary text-primary-foreground text-[10px] font-semibold flex items-center justify-center flex-shrink-0">
-                            {c.unreadCount}
-                          </span>
-                        )}
                       </Link>
                     </li>
                   );
@@ -384,12 +440,12 @@ function MessagesPage() {
 
           {/* Chat panel */}
           <section
-            className={`flex flex-col ${
-              activePartnerId ? "block" : "hidden md:flex"
+            className={`flex-col min-h-0 ${
+              activePartnerId ? "flex" : "hidden md:flex"
             }`}
           >
             {!activePartnerId ? (
-              <div className="flex-1 flex items-center justify-center text-center text-muted-foreground p-6">
+              <div className="flex-1 flex items-center justify-center text-center text-muted-foreground p-6 bg-muted/10">
                 <div>
                   <MessageCircle className="h-12 w-12 mx-auto mb-3 opacity-40" />
                   <p className="text-sm">Select a conversation to start chatting.</p>
@@ -398,7 +454,7 @@ function MessagesPage() {
             ) : (
               <>
                 {/* Chat header */}
-                <div className="flex items-center gap-3 px-3 sm:px-4 py-3 border-b">
+                <div className="flex items-center gap-3 px-3 sm:px-4 py-3 border-b bg-card flex-shrink-0">
                   <Button
                     asChild
                     variant="ghost"
@@ -423,8 +479,7 @@ function MessagesPage() {
                 {/* Messages */}
                 <div
                   ref={scrollRef}
-                  className="flex-1 overflow-y-auto px-3 sm:px-4 py-4 space-y-2 bg-muted/10"
-                  style={{ maxHeight: "calc(100vh - 220px)" }}
+                  className="flex-1 min-h-0 overflow-y-auto px-3 sm:px-6 py-4 space-y-1 chat-bg"
                 >
                   {loadingMsgs ? (
                     <div className="flex justify-center py-12">
@@ -438,31 +493,57 @@ function MessagesPage() {
                     messages.map((m, idx) => {
                       const mine = m.sender_id === user.id;
                       const prev = messages[idx - 1];
-                      const showTime =
+                      const next = messages[idx + 1];
+                      const showDay =
                         !prev ||
-                        new Date(m.created_at).getTime() -
-                          new Date(prev.created_at).getTime() >
+                        new Date(m.created_at).toDateString() !==
+                          new Date(prev.created_at).toDateString();
+                      const isLastOfGroup =
+                        !next ||
+                        next.sender_id !== m.sender_id ||
+                        new Date(next.created_at).getTime() -
+                          new Date(m.created_at).getTime() >
                           5 * 60_000;
                       return (
                         <div key={m.id}>
-                          {showTime && (
-                            <p className="text-center text-[10px] text-muted-foreground my-2">
-                              {new Date(m.created_at).toLocaleString()}
-                            </p>
+                          {showDay && (
+                            <div className="flex justify-center my-3">
+                              <span className="text-[10px] uppercase tracking-wide bg-background/80 backdrop-blur px-2.5 py-1 rounded-full text-muted-foreground shadow-sm">
+                                {dayLabel(m.created_at)}
+                              </span>
+                            </div>
                           )}
                           <div
                             className={`flex ${
                               mine ? "justify-end" : "justify-start"
-                            }`}
+                            } ${isLastOfGroup ? "mb-2" : "mb-0.5"}`}
                           >
                             <div
-                              className={`max-w-[80%] rounded-2xl px-3.5 py-2 text-sm whitespace-pre-wrap break-words ${
+                              className={`max-w-[78%] px-3 py-1.5 text-sm whitespace-pre-wrap break-words shadow-sm relative ${
                                 mine
-                                  ? "bg-primary text-primary-foreground rounded-br-sm"
-                                  : "bg-background border rounded-bl-sm"
+                                  ? `bg-[var(--chat-mine)] text-foreground ${
+                                      isLastOfGroup
+                                        ? "rounded-2xl rounded-br-md"
+                                        : "rounded-2xl"
+                                    }`
+                                  : `bg-card text-foreground border ${
+                                      isLastOfGroup
+                                        ? "rounded-2xl rounded-bl-md"
+                                        : "rounded-2xl"
+                                    }`
                               }`}
                             >
-                              {m.content}
+                              <span>{m.content}</span>
+                              <span className="ml-2 inline-flex items-center gap-0.5 text-[10px] text-muted-foreground/80 align-bottom float-right mt-1 -mb-0.5">
+                                {timeOnly(m.created_at)}
+                                {mine && (
+                                  m.read ? (
+                                    <CheckCheck className="h-3 w-3 text-primary" />
+                                  ) : (
+                                    <Check className="h-3 w-3" />
+                                  )
+                                )}
+                              </span>
                             </div>
                           </div>
                         </div>
@@ -472,7 +553,7 @@ function MessagesPage() {
                 </div>
 
                 {/* Composer */}
-                <div className="border-t p-2 sm:p-3 bg-background">
+                <div className="border-t p-2 sm:p-3 bg-card flex-shrink-0">
                   <form
                     onSubmit={(e) => {
                       e.preventDefault();
@@ -481,17 +562,18 @@ function MessagesPage() {
                     className="flex gap-2 items-end"
                   >
                     <Input
-                      placeholder="Write a message…"
+                      placeholder="Type a message"
                       value={draft}
                       onChange={(e) => setDraft(e.target.value)}
                       maxLength={2000}
-                      className="flex-1"
+                      className="flex-1 rounded-full bg-muted/40 border-0 focus-visible:ring-1"
                     />
                     <Button
                       type="submit"
                       size="icon"
                       disabled={sending || !draft.trim()}
                       aria-label="Send"
+                      className="rounded-full"
                     >
                       {sending ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
