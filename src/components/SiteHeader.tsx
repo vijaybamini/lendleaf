@@ -116,6 +116,15 @@ export function SiteHeader() {
         <nav className="flex items-center gap-0.5 sm:gap-1 flex-shrink-0">
           {user ? (
             <>
+              <Button
+                variant="ghost"
+                size="icon"
+                title="Search books"
+                aria-label="Search books"
+                onClick={handleSearchIconClick}
+              >
+                <Search className="h-5 w-5" />
+              </Button>
               <Button asChild variant="ghost" size="icon" title="My Shelf" aria-label="My Shelf">
                 <Link to="/shelf">
                   <Library className="h-5 w-5" />
