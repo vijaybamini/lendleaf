@@ -7,7 +7,7 @@ import { useAuth } from "@/lib/auth";
 import { useCredits } from "@/hooks/use-credits";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Feed } from "@/components/Feed";
 
