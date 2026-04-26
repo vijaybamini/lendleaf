@@ -1,13 +1,13 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { BookOpen, Loader2, Leaf, Clock, Check, MessageCircle, Search } from "lucide-react";
+import { BookOpen, Loader2, Leaf, Clock, Check, MessageCircle } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { useCredits } from "@/hooks/use-credits";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Feed } from "@/components/Feed";
 
@@ -160,18 +160,12 @@ function BooksList({
   credits: number | null;
   query: string;
 }) {
-  const navigate = useNavigate();
   const [books, setBooks] = useState<BrowseBook[]>([]);
   const [owners, setOwners] = useState<Record<string, OwnerProfile>>({});
   const [requestedBookIds, setRequestedBookIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [requesting, setRequesting] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterKey>("available");
-  const [localQuery, setLocalQuery] = useState(query);
-
-  useEffect(() => {
-    setLocalQuery(query);
-  }, [query]);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -258,14 +252,6 @@ function BooksList({
     { key: "all", label: "All books" },
   ];
 
-  const updateQuery = (value: string) => {
-    setLocalQuery(value);
-    navigate({
-      to: "/browse",
-      search: (prev) => ({ ...prev, q: value.trim() || undefined }),
-    });
-  };
-
   return (
     <>
       {noCredits && (
@@ -277,21 +263,6 @@ function BooksList({
           to earn more.
         </div>
       )}
-
-      {/* Mobile-only inline search (header search hidden on tiny screens) */}
-      <div className="sm:hidden mb-4">
-        <div className="relative">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-          <Input
-            type="search"
-            value={localQuery}
-            onChange={(e) => updateQuery(e.target.value)}
-            placeholder="Search books to borrow…"
-            className="pl-8 h-9"
-            aria-label="Search books"
-          />
-        </div>
-      </div>
 
       <div className="flex items-center justify-between flex-wrap gap-3 mb-5 sm:mb-6">
         <div className="inline-flex rounded-md border bg-card p-1">
