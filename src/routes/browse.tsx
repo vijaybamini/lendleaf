@@ -278,21 +278,6 @@ function BooksList({
         </div>
       )}
 
-      {/* Mobile-only inline search (header search hidden on tiny screens) */}
-      <div className="sm:hidden mb-4">
-        <div className="relative">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-          <Input
-            type="search"
-            value={localQuery}
-            onChange={(e) => updateQuery(e.target.value)}
-            placeholder="Search books to borrow…"
-            className="pl-8 h-9"
-            aria-label="Search books"
-          />
-        </div>
-      </div>
-
       <div className="flex items-center justify-between flex-wrap gap-3 mb-5 sm:mb-6">
         <div className="inline-flex rounded-md border bg-card p-1">
           {filterOptions.map((opt) => (
