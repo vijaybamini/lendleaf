@@ -1,6 +1,6 @@
 import { Link, useNavigate, useLocation, useSearch } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
-import { BookMarked, LogOut, Leaf, Search, Library, Inbox, MessageCircle } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { BookMarked, LogOut, Leaf, Search, Library, Inbox, MessageCircle, X } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { useCredits } from "@/hooks/use-credits";
 import { Button } from "@/components/ui/button";
@@ -13,13 +13,27 @@ export function SiteHeader() {
   const location = useLocation();
   const search = useSearch({ strict: false }) as { q?: string };
   const [query, setQuery] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
+  const inputRef = useRef<HTMLInputElement | null>(null);
 
-  // Sync local input with URL when on /browse
+  const onBrowse = location.pathname === "/browse";
+
+  // Sync local input with URL when on /browse and auto-open if there's an active query
   useEffect(() => {
-    if (location.pathname === "/browse") {
+    if (onBrowse) {
       setQuery(search.q ?? "");
+      if (search.q) setSearchOpen(true);
+    } else {
+      setSearchOpen(false);
     }
-  }, [location.pathname, search.q]);
+  }, [onBrowse, search.q]);
+
+  // Focus input when opened
+  useEffect(() => {
+    if (searchOpen && inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, [searchOpen]);
 
   const submitSearch = (value: string) => {
     navigate({
@@ -32,6 +46,22 @@ export function SiteHeader() {
     });
   };
 
+  const handleSearchIconClick = () => {
+    if (onBrowse) {
+      setSearchOpen((v) => {
+        const next = !v;
+        if (!next) {
+          // Closing — clear query
+          setQuery("");
+          submitSearch("");
+        }
+        return next;
+      });
+    } else {
+      navigate({ to: "/browse", search: { tab: "books" } });
+    }
+  };
+
   return (
     <header className="border-b border-border/60 bg-background/80 backdrop-blur sticky top-0 z-40">
       <div className="container mx-auto flex h-16 items-center gap-2 sm:gap-3 px-3 sm:px-4 max-w-6xl">
@@ -42,19 +72,7 @@ export function SiteHeader() {
           </span>
         </Link>
 
-        {user && location.pathname === "/" ? (
-          <div className="flex-1 flex justify-end mx-1 sm:mx-2">
-            <Button
-              variant="ghost"
-              size="icon"
-              title="Search books"
-              aria-label="Search books"
-              onClick={() => navigate({ to: "/browse", search: { tab: "books" } })}
-            >
-              <Search className="h-5 w-5" />
-            </Button>
-          </div>
-        ) : user ? (
+        {user && onBrowse && searchOpen ? (
           <form
             onSubmit={(e) => {
               e.preventDefault();
@@ -66,24 +84,34 @@ export function SiteHeader() {
             <div className="relative">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
               <Input
+                ref={inputRef}
                 type="search"
                 value={query}
                 onChange={(e) => {
                   setQuery(e.target.value);
-                  if (location.pathname === "/browse") submitSearch(e.target.value);
-                }}
-                onFocus={() => {
-                  if (location.pathname !== "/browse") {
-                    navigate({ to: "/browse", search: { tab: "books" } });
-                  }
+                  submitSearch(e.target.value);
                 }}
                 placeholder="Search books to borrow…"
-                className="pl-8 h-9 text-sm"
+                className="pl-8 pr-8 h-9 text-sm"
                 aria-label="Search books"
               />
+              <button
+                type="button"
+                onClick={() => {
+                  setQuery("");
+                  submitSearch("");
+                  setSearchOpen(false);
+                }}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                aria-label="Close search"
+              >
+                <X className="h-4 w-4" />
+              </button>
             </div>
           </form>
-        ) : null}
+        ) : (
+          <div className="flex-1" />
+        )}
 
         <nav className="flex items-center gap-0.5 sm:gap-1 flex-shrink-0">
           {user ? (
