@@ -253,14 +253,6 @@ function BooksList({
     { key: "all", label: "All books" },
   ];
 
-  const updateQuery = (value: string) => {
-    setLocalQuery(value);
-    navigate({
-      to: "/browse",
-      search: (prev) => ({ ...prev, q: value.trim() || undefined }),
-    });
-  };
-
   return (
     <>
       {noCredits && (
