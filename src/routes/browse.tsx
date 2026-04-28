@@ -179,6 +179,13 @@ function BooksList({
   const [loading, setLoading] = useState(true);
   const [requesting, setRequesting] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterKey>("available");
+  const {
+    location,
+    loading: locLoading,
+    error: locError,
+    detect,
+    clear,
+  } = useUserLocation();
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -201,11 +208,11 @@ function BooksList({
     if (ownerIds.length > 0) {
       const { data: profileData } = await supabase
         .from("profiles")
-        .select("id, display_name")
+        .select("id, display_name, location_lat, location_lng, location_label")
         .in("id", ownerIds);
       const map: Record<string, OwnerProfile> = {};
       (profileData ?? []).forEach((p) => {
-        map[p.id] = p;
+        map[p.id] = p as OwnerProfile;
       });
       setOwners(map);
     }
@@ -241,10 +248,38 @@ function BooksList({
     toast.success("Borrow request sent");
   };
 
+  // Distance per book (if both locations are known)
+  const distances = useMemo(() => {
+    const map: Record<string, number> = {};
+    if (!location) return map;
+    books.forEach((b) => {
+      const o = owners[b.owner_id];
+      if (
+        o &&
+        typeof o.location_lat === "number" &&
+        typeof o.location_lng === "number"
+      ) {
+        map[b.id] = distanceKm(location, {
+          lat: o.location_lat,
+          lng: o.location_lng,
+        });
+      }
+    });
+    return map;
+  }, [books, owners, location]);
+
+  const NEARBY_KM = 50;
+
   const visibleBooks = useMemo(() => {
     let list = books;
-    if (filter === "available") {
+    if (filter === "available" || filter === "nearby") {
       list = list.filter((b) => b.owner_id !== user.id && b.status === "available");
+    }
+    if (filter === "nearby") {
+      list = list.filter((b) => {
+        const d = distances[b.id];
+        return typeof d === "number" && d <= NEARBY_KM;
+      });
     }
     if (query) {
       const q = query.toLowerCase();
@@ -255,15 +290,33 @@ function BooksList({
           (b.isbn ?? "").toLowerCase().includes(q),
       );
     }
+    // Priority sort: known nearest distance first, unknown last
+    if (location) {
+      list = [...list].sort((a, b) => {
+        const da = distances[a.id];
+        const db = distances[b.id];
+        if (da == null && db == null) return 0;
+        if (da == null) return 1;
+        if (db == null) return -1;
+        return da - db;
+      });
+    }
     return list;
-  }, [books, filter, user.id, query]);
+  }, [books, filter, user.id, query, distances, location]);
 
   const noCredits = (credits ?? 0) <= 0;
 
   const filterOptions: { key: FilterKey; label: string }[] = [
-    { key: "available", label: "Available to borrow" },
-    { key: "all", label: "All books" },
+    { key: "available", label: "Available" },
+    { key: "nearby", label: "Nearby" },
+    { key: "all", label: "All" },
   ];
+
+  const handleDetect = async () => {
+    const loc = await detect();
+    if (loc) toast.success(loc.label ? `Location set: ${loc.label}` : "Location set");
+    else if (locError) toast.error(locError);
+  };
 
   return (
     <>
