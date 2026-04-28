@@ -177,6 +177,7 @@ function BooksList({
   const [loading, setLoading] = useState(true);
   const [requesting, setRequesting] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterKey>("available");
+  const [distances, setDistances] = useState<Record<string, number>>({});
   const {
     location,
     loading: locLoading,
