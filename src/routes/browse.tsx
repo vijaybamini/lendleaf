@@ -206,7 +206,7 @@ function BooksList({
     if (ownerIds.length > 0) {
       const { data: profileData } = await supabase
         .from("profiles")
-        .select("id, display_name, location_lat, location_lng, location_label")
+        .select("id, display_name, location_label")
         .in("id", ownerIds);
       const map: Record<string, OwnerProfile> = {};
       (profileData ?? []).forEach((p) => {
