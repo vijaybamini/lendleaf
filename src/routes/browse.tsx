@@ -14,7 +14,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { useCredits } from "@/hooks/use-credits";
-import { useUserLocation, distanceKm, formatDistance } from "@/hooks/use-location";
+import { useUserLocation, formatDistance } from "@/hooks/use-location";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Button } from "@/components/ui/button";
 
