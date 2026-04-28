@@ -471,6 +471,20 @@ function BooksList({
                       {isMine ? "You" : owner?.display_name ?? "a member"}
                     </span>
                   </p>
+                  {!isMine && (owner?.location_label || distances[book.id] != null) && (
+                    <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1 min-w-0">
+                      <MapPin className="h-3 w-3 flex-shrink-0 text-primary/70" />
+                      <span className="truncate">
+                        {distances[book.id] != null && (
+                          <span className="font-medium text-foreground">
+                            {formatDistance(distances[book.id])}
+                          </span>
+                        )}
+                        {distances[book.id] != null && owner?.location_label && " · "}
+                        {owner?.location_label}
+                      </span>
+                    </p>
+                  )}
                   <div className="mt-auto pt-3">
                     {isMine ? (
                       <Button size="sm" variant="outline" disabled className="w-full">
