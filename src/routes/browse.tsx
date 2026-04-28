@@ -247,25 +247,29 @@ function BooksList({
     toast.success("Borrow request sent");
   };
 
-  // Distance per book (if both locations are known)
-  const distances = useMemo(() => {
-    const map: Record<string, number> = {};
-    if (!location) return map;
-    books.forEach((b) => {
-      const o = owners[b.owner_id];
-      if (
-        o &&
-        typeof o.location_lat === "number" &&
-        typeof o.location_lng === "number"
-      ) {
-        map[b.id] = distanceKm(location, {
-          lat: o.location_lat,
-          lng: o.location_lng,
-        });
-      }
-    });
-    return map;
-  }, [books, owners, location]);
+  // Load distances via a server RPC so other users' coordinates never leave the server.
+  useEffect(() => {
+    if (!location) {
+      setDistances({});
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase.rpc("nearby_book_distances", {
+        _lat: location.lat,
+        _lng: location.lng,
+      });
+      if (cancelled) return;
+      const map: Record<string, number> = {};
+      (data ?? []).forEach((row: { book_id: string; distance_km: number }) => {
+        map[row.book_id] = row.distance_km;
+      });
+      setDistances(map);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [location, books]);
 
   const NEARBY_KM = 50;
 
