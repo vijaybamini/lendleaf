@@ -330,6 +330,47 @@ function BooksList({
         </div>
       )}
 
+      <div className="mb-4 paper-card rounded-md p-3 flex items-center gap-2 text-sm">
+        <MapPin className="h-4 w-4 text-primary flex-shrink-0" />
+        {location ? (
+          <>
+            <span className="min-w-0 flex-1 truncate">
+              <span className="text-muted-foreground">Showing books near </span>
+              <span className="font-medium">
+                {location.label ?? `${location.lat.toFixed(2)}, ${location.lng.toFixed(2)}`}
+              </span>
+            </span>
+            <button
+              onClick={handleDetect}
+              className="text-xs text-primary hover:underline flex-shrink-0"
+              disabled={locLoading}
+            >
+              {locLoading ? "Updating…" : "Update"}
+            </button>
+            <button
+              onClick={() => void clear()}
+              className="text-muted-foreground hover:text-foreground flex-shrink-0"
+              aria-label="Clear location"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </>
+        ) : (
+          <>
+            <span className="min-w-0 flex-1 text-muted-foreground">
+              Share your location to see books available nearby first.
+            </span>
+            <Button size="sm" variant="outline" onClick={handleDetect} disabled={locLoading}>
+              {locLoading ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                "Use my location"
+              )}
+            </Button>
+          </>
+        )}
+      </div>
+
       <div className="flex items-center justify-between flex-wrap gap-3 mb-5 sm:mb-6">
         <div className="inline-flex rounded-md border bg-card p-1">
           {filterOptions.map((opt) => (
