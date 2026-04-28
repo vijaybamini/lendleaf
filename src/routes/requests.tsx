@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   BookOpen,
@@ -7,22 +7,17 @@ import {
   X,
   Loader2,
   Handshake,
-  Inbox,
-  Clock,
-  CheckCircle2,
-  ArrowDownLeft,
-  ArrowUpRight,
   Hourglass,
-  PackageCheck,
   Undo2,
   MessageCircle,
+  ChevronLeft,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/requests")({
   component: RequestsPage,
@@ -51,52 +46,6 @@ interface TxRow {
   counterparty: { id: string; display_name: string | null } | null;
 }
 
-function statusBadge(tx: TxRow, viewerIsLender: boolean) {
-  if (tx.status === "accepted") {
-    const myConfirmed = viewerIsLender ? tx.lender_confirmed : tx.borrower_confirmed;
-    const theirConfirmed = viewerIsLender ? tx.borrower_confirmed : tx.lender_confirmed;
-    if (myConfirmed && !theirConfirmed) {
-      return (
-        <Badge variant="outline" className="bg-amber-100 text-amber-900 border-amber-200">
-          Waiting for other party
-        </Badge>
-      );
-    }
-    return (
-      <Badge variant="outline" className="bg-blue-100 text-blue-900 border-blue-200">
-        Accepted — awaiting handover
-      </Badge>
-    );
-  }
-
-  if (tx.status === "active") {
-    const myReturned = viewerIsLender ? tx.lender_returned : tx.borrower_returned;
-    const theirReturned = viewerIsLender ? tx.borrower_returned : tx.lender_returned;
-    if (myReturned && !theirReturned) {
-      return (
-        <Badge variant="outline" className="bg-amber-100 text-amber-900 border-amber-200">
-          Waiting on return confirmation
-        </Badge>
-      );
-    }
-    return (
-      <Badge variant="outline" className="bg-primary/15 text-primary border-primary/20">
-        Active loan
-      </Badge>
-    );
-  }
-
-  const map: Record<TxStatus, { label: string; className: string }> = {
-    pending: { label: "Pending", className: "bg-amber-100 text-amber-900 border-amber-200" },
-    accepted: { label: "Accepted", className: "bg-blue-100 text-blue-900 border-blue-200" },
-    active: { label: "Active", className: "bg-primary/15 text-primary border-primary/20" },
-    completed: { label: "Returned", className: "bg-muted text-muted-foreground border-border" },
-    rejected: { label: "Rejected", className: "bg-muted text-muted-foreground border-border" },
-  };
-  const v = map[tx.status];
-  return <Badge variant="outline" className={v.className}>{v.label}</Badge>;
-}
-
 async function fetchTransactions(
   userId: string,
   side: "incoming" | "outgoing",
@@ -114,7 +63,6 @@ async function fetchTransactions(
 
   const list = txs ?? [];
   const bookIds = Array.from(new Set(list.map((t) => t.book_id)));
-  // counterparty = the OTHER user
   const counterIds = Array.from(
     new Set(list.map((t) => (side === "incoming" ? t.borrower_id : t.lender_id))),
   );
@@ -148,10 +96,33 @@ async function fetchTransactions(
   }));
 }
 
+function timeAgo(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const s = Math.floor(diff / 1000);
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h`;
+  const d = Math.floor(h / 24);
+  if (d < 7) return `${d}d`;
+  const w = Math.floor(d / 7);
+  if (w < 4) return `${w}w`;
+  return `${Math.floor(d / 30)}mo`;
+}
+
+function initialsOf(name: string | null | undefined): string {
+  if (!name) return "?";
+  const parts = name.trim().split(/\s+/).slice(0, 2);
+  return parts.map((p) => p[0]?.toUpperCase() ?? "").join("") || "?";
+}
+
 function RequestsPage() {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+
+  const [tab, setTab] = useState<"incoming" | "outgoing">("incoming");
 
   useEffect(() => {
     if (!authLoading && !user) navigate({ to: "/login" });
@@ -180,7 +151,6 @@ function RequestsPage() {
     queryClient.invalidateQueries({ queryKey: ["credits"] });
   };
 
-  // Accept / Reject — only on incoming
   const respondMutation = useMutation({
     mutationFn: async ({ id, accept }: { id: string; accept: boolean }) => {
       const { error } = await supabase.rpc("respond_to_request", {
@@ -204,95 +174,28 @@ function RequestsPage() {
       toast.error(err.message || "Action failed");
     },
     onSuccess: (_data, { accept }) => {
-      toast.success(accept ? "Request accepted" : "Request rejected");
+      toast.success(accept ? "Request accepted" : "Request declined");
     },
     onSettled: invalidateAll,
   });
 
-  // Confirm handover — works for both lender and borrower (mutual confirmation)
   const handoverMutation = useMutation({
     mutationFn: async ({ id }: { id: string; side: "incoming" | "outgoing" }) => {
       const { error } = await supabase.rpc("confirm_handover", { _transaction_id: id });
       if (error) throw error;
     },
-    onMutate: async ({ id, side }) => {
-      const key = side === "incoming" ? incomingKey : outgoingKey;
-      await queryClient.cancelQueries({ queryKey: key });
-      const previous = queryClient.getQueryData<TxRow[]>(key);
-      queryClient.setQueryData<TxRow[]>(key, (old) =>
-        (old ?? []).map((r) => {
-          if (r.id !== id) return r;
-          const lender_confirmed = side === "incoming" ? true : r.lender_confirmed;
-          const borrower_confirmed = side === "outgoing" ? true : r.borrower_confirmed;
-          const bothConfirmed = lender_confirmed && borrower_confirmed;
-          return {
-            ...r,
-            lender_confirmed,
-            borrower_confirmed,
-            status: bothConfirmed ? ("active" as const) : r.status,
-          };
-        }),
-      );
-      return { previous, key };
-    },
-    onError: (err: Error, _vars, ctx) => {
-      if (ctx?.previous && ctx.key) queryClient.setQueryData(ctx.key, ctx.previous);
-      toast.error(err.message || "Confirmation failed");
-    },
-    onSuccess: (_data, { id, side }) => {
-      // Look up freshest snapshot to decide which toast to show
-      const key = side === "incoming" ? incomingKey : outgoingKey;
-      const list = queryClient.getQueryData<TxRow[]>(key) ?? [];
-      const tx = list.find((r) => r.id === id);
-      if (tx?.status === "active") {
-        toast.success("Handover complete — enjoy! 🌿");
-      } else {
-        toast.success("Confirmed. Waiting for the other party.");
-      }
-    },
+    onError: (err: Error) => toast.error(err.message || "Confirmation failed"),
+    onSuccess: () => toast.success("Confirmed 🌿"),
     onSettled: invalidateAll,
   });
 
-  // Confirm return — works for both lender and borrower (mutual confirmation)
   const returnMutation = useMutation({
     mutationFn: async ({ id }: { id: string; side: "incoming" | "outgoing" }) => {
       const { error } = await supabase.rpc("confirm_return", { _transaction_id: id });
       if (error) throw error;
     },
-    onMutate: async ({ id, side }) => {
-      const key = side === "incoming" ? incomingKey : outgoingKey;
-      await queryClient.cancelQueries({ queryKey: key });
-      const previous = queryClient.getQueryData<TxRow[]>(key);
-      queryClient.setQueryData<TxRow[]>(key, (old) =>
-        (old ?? []).map((r) => {
-          if (r.id !== id) return r;
-          const lender_returned = side === "incoming" ? true : r.lender_returned;
-          const borrower_returned = side === "outgoing" ? true : r.borrower_returned;
-          const bothReturned = lender_returned && borrower_returned;
-          return {
-            ...r,
-            lender_returned,
-            borrower_returned,
-            status: bothReturned ? ("completed" as const) : r.status,
-          };
-        }),
-      );
-      return { previous, key };
-    },
-    onError: (err: Error, _vars, ctx) => {
-      if (ctx?.previous && ctx.key) queryClient.setQueryData(ctx.key, ctx.previous);
-      toast.error(err.message || "Return confirmation failed");
-    },
-    onSuccess: (_data, { id, side }) => {
-      const key = side === "incoming" ? incomingKey : outgoingKey;
-      const list = queryClient.getQueryData<TxRow[]>(key) ?? [];
-      const tx = list.find((r) => r.id === id);
-      if (tx?.status === "completed") {
-        toast.success("Return complete — book is back on the shelf 🌿");
-      } else {
-        toast.success("Return confirmed. Waiting for the other party.");
-      }
-    },
+    onError: (err: Error) => toast.error(err.message || "Return confirmation failed"),
+    onSuccess: () => toast.success("Return confirmed 🌿"),
     onSettled: invalidateAll,
   });
 
@@ -304,276 +207,118 @@ function RequestsPage() {
     );
   }
 
-  // Incoming buckets (lender's perspective)
-  const incomingPending = incoming.filter((r) => r.status === "pending");
-  const incomingAccepted = incoming.filter((r) => r.status === "accepted");
-  const incomingActive = incoming.filter((r) => r.status === "active");
-  const incomingHistory = incoming.filter((r) =>
-    ["completed", "rejected"].includes(r.status),
-  );
+  const list = tab === "incoming" ? incoming : outgoing;
+  const isLoading = tab === "incoming" ? incomingLoading : outgoingLoading;
 
-  // Outgoing buckets (borrower's perspective)
-  const outgoingPending = outgoing.filter((r) => r.status === "pending");
-  const outgoingAccepted = outgoing.filter((r) => r.status === "accepted");
-  const outgoingActive = outgoing.filter((r) => r.status === "active");
-  const outgoingHistory = outgoing.filter((r) =>
-    ["completed", "rejected"].includes(r.status),
-  );
-
-  const respondingId = respondMutation.isPending
-    ? respondMutation.variables?.id
-    : undefined;
-  const handoverId = handoverMutation.isPending
-    ? handoverMutation.variables?.id
-    : undefined;
-  const returnId = returnMutation.isPending
-    ? returnMutation.variables?.id
-    : undefined;
-
-  const isLoading = incomingLoading || outgoingLoading;
-  const totalCount = incoming.length + outgoing.length;
+  // Sort: actionable first (pending for incoming, or accepted/active needing you), then rest.
+  const actionable = list.filter((r) => {
+    if (tab === "incoming") {
+      if (r.status === "pending") return true;
+      if (r.status === "accepted" && !r.lender_confirmed) return true;
+      if (r.status === "active" && !r.lender_returned) return true;
+      return false;
+    } else {
+      if (r.status === "accepted" && !r.borrower_confirmed) return true;
+      if (r.status === "active" && !r.borrower_returned) return true;
+      return false;
+    }
+  });
+  const waiting = list.filter((r) => !actionable.includes(r) && !["completed", "rejected"].includes(r.status));
+  const history = list.filter((r) => ["completed", "rejected"].includes(r.status));
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col bg-background">
       <SiteHeader />
-      <main className="flex-1 container mx-auto px-4 max-w-4xl py-10">
-        <div className="mb-8">
-          <h1 className="font-serif text-4xl md:text-5xl font-semibold">Requests</h1>
-          <p className="text-muted-foreground mt-1">
-            Manage borrow requests and confirm handovers — both sides must confirm to complete a loan.
-          </p>
+
+      <main className="flex-1 w-full max-w-2xl mx-auto">
+        {/* IG-style header */}
+        <div className="sticky top-16 z-10 bg-background/95 backdrop-blur border-b border-border">
+          <div className="flex items-center gap-2 px-4 h-12">
+            <button
+              onClick={() => navigate({ to: "/" })}
+              className="p-1 -ml-1 rounded-full hover:bg-muted"
+              aria-label="Back"
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </button>
+            <h1 className="text-base font-semibold">Requests</h1>
+            {list.length > 0 && (
+              <span className="text-sm text-muted-foreground">· {list.length}</span>
+            )}
+          </div>
+
+          {/* Tabs */}
+          <div className="flex border-t border-border">
+            <TabButton active={tab === "incoming"} onClick={() => setTab("incoming")}>
+              Incoming {incoming.length > 0 && <span className="text-muted-foreground">({incoming.length})</span>}
+            </TabButton>
+            <TabButton active={tab === "outgoing"} onClick={() => setTab("outgoing")}>
+              Sent {outgoing.length > 0 && <span className="text-muted-foreground">({outgoing.length})</span>}
+            </TabButton>
+          </div>
+        </div>
+
+        {/* Intro line, like IG's "The people below have requested to message you..." */}
+        <div className="px-4 py-3 text-[13px] text-muted-foreground leading-relaxed border-b border-border">
+          {tab === "incoming" ? (
+            <>The people below have requested to borrow a book from your shelf. They <span className="font-medium text-foreground">won't know</span> you've seen their request until you accept it.</>
+          ) : (
+            <>Books you've asked to borrow. The owner will review your request and confirm the handover with you.</>
+          )}
         </div>
 
         {isLoading ? (
           <div className="flex justify-center py-20">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
-        ) : totalCount === 0 ? (
-          <div className="paper-card rounded-lg py-16 px-6 text-center">
-            <Inbox className="h-12 w-12 text-muted-foreground/60 mx-auto mb-4" strokeWidth={1.25} />
-            <h2 className="font-serif text-2xl font-semibold mb-2">No requests yet</h2>
-            <p className="text-muted-foreground max-w-sm mx-auto">
-              When you request a book or someone asks to borrow yours, it'll show up here.
+        ) : list.length === 0 ? (
+          <div className="py-20 px-6 text-center">
+            <div className="mx-auto w-14 h-14 rounded-full border-2 border-foreground flex items-center justify-center mb-4">
+              <Handshake className="h-6 w-6" strokeWidth={1.5} />
+            </div>
+            <h2 className="text-base font-semibold mb-1">No requests</h2>
+            <p className="text-sm text-muted-foreground max-w-xs mx-auto">
+              {tab === "incoming"
+                ? "When someone asks to borrow a book from your shelf, it'll show up here."
+                : "Books you request to borrow will appear here."}
             </p>
           </div>
         ) : (
-          <div className="space-y-12">
-            {/* INCOMING (you are the lender) */}
-            <div>
-              <div className="flex items-center gap-2 mb-4">
-                <ArrowDownLeft className="h-5 w-5 text-primary" />
-                <h2 className="font-serif text-2xl font-semibold">Incoming</h2>
-                <span className="text-sm text-muted-foreground">— books people want from you</span>
-              </div>
+          <div>
+            {actionable.map((r) => (
+              <RequestItem
+                key={r.id}
+                req={r}
+                side={tab}
+                busy={
+                  (respondMutation.isPending && respondMutation.variables?.id === r.id) ||
+                  (handoverMutation.isPending && handoverMutation.variables?.id === r.id) ||
+                  (returnMutation.isPending && returnMutation.variables?.id === r.id)
+                }
+                onAccept={() => respondMutation.mutate({ id: r.id, accept: true })}
+                onReject={() => respondMutation.mutate({ id: r.id, accept: false })}
+                onHandover={() => handoverMutation.mutate({ id: r.id, side: tab })}
+                onReturn={() => returnMutation.mutate({ id: r.id, side: tab })}
+              />
+            ))}
 
-              <div className="space-y-8">
-                <Section title="Pending" icon={<Clock className="h-4 w-4" />} count={incomingPending.length}>
-                  {incomingPending.length === 0 ? (
-                    <EmptyHint>No pending requests.</EmptyHint>
-                  ) : (
-                    incomingPending.map((r) => {
-                      const busy = respondingId === r.id;
-                      return (
-                        <RequestRow key={r.id} req={r} viewerIsLender>
-                          <Button
-                            size="sm"
-                            onClick={() => respondMutation.mutate({ id: r.id, accept: true })}
-                            disabled={busy}
-                          >
-                            {busy ? (
-                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                            ) : (
-                              <><Check className="h-3.5 w-3.5 mr-1" /> Accept</>
-                            )}
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => respondMutation.mutate({ id: r.id, accept: false })}
-                            disabled={busy}
-                          >
-                            <X className="h-3.5 w-3.5 mr-1" /> Reject
-                          </Button>
-                        </RequestRow>
-                      );
-                    })
-                  )}
-                </Section>
+            {waiting.length > 0 && (
+              <>
+                <SectionLabel>Waiting</SectionLabel>
+                {waiting.map((r) => (
+                  <RequestItem key={r.id} req={r} side={tab} waiting />
+                ))}
+              </>
+            )}
 
-                <Section title="Awaiting handover" icon={<Handshake className="h-4 w-4" />} count={incomingAccepted.length}>
-                  {incomingAccepted.length === 0 ? (
-                    <EmptyHint>No accepted requests waiting on handover.</EmptyHint>
-                  ) : (
-                    incomingAccepted.map((r) => {
-                      const busy = handoverId === r.id;
-                      const alreadyConfirmed = r.lender_confirmed;
-                      return (
-                        <RequestRow key={r.id} req={r} viewerIsLender>
-                          {alreadyConfirmed ? (
-                            <Button size="sm" variant="outline" disabled>
-                              <Hourglass className="h-3.5 w-3.5 mr-1" /> Waiting for borrower
-                            </Button>
-                          ) : (
-                            <Button
-                              size="sm"
-                              onClick={() =>
-                                handoverMutation.mutate({ id: r.id, side: "incoming" })
-                              }
-                              disabled={busy}
-                            >
-                              {busy ? (
-                                <><Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> Confirming…</>
-                              ) : (
-                                <><Handshake className="h-3.5 w-3.5 mr-1" /> I handed over the book</>
-                              )}
-                            </Button>
-                          )}
-                        </RequestRow>
-                      );
-                    })
-                  )}
-                </Section>
-
-                <Section title="Active loans" icon={<PackageCheck className="h-4 w-4" />} count={incomingActive.length}>
-                  {incomingActive.length === 0 ? (
-                    <EmptyHint>No books currently lent out.</EmptyHint>
-                  ) : (
-                    incomingActive.map((r) => {
-                      const busy = returnId === r.id;
-                      const alreadyReturned = r.lender_returned;
-                      return (
-                        <RequestRow key={r.id} req={r} viewerIsLender>
-                          {alreadyReturned ? (
-                            <Button size="sm" variant="outline" disabled>
-                              <Hourglass className="h-3.5 w-3.5 mr-1" /> Waiting for borrower to confirm return
-                            </Button>
-                          ) : (
-                            <Button
-                              size="sm"
-                              onClick={() =>
-                                returnMutation.mutate({ id: r.id, side: "incoming" })
-                              }
-                              disabled={busy}
-                            >
-                              {busy ? (
-                                <><Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> Confirming…</>
-                              ) : (
-                                <><Undo2 className="h-3.5 w-3.5 mr-1" /> I got the book back</>
-                              )}
-                            </Button>
-                          )}
-                        </RequestRow>
-                      );
-                    })
-                  )}
-                </Section>
-
-                {incomingHistory.length > 0 && (
-                  <Section title="History" icon={<CheckCircle2 className="h-4 w-4" />} count={incomingHistory.length}>
-                    {incomingHistory.map((r) => (
-                      <RequestRow key={r.id} req={r} viewerIsLender />
-                    ))}
-                  </Section>
-                )}
-              </div>
-            </div>
-
-            {/* OUTGOING (you are the borrower) */}
-            <div>
-              <div className="flex items-center gap-2 mb-4">
-                <ArrowUpRight className="h-5 w-5 text-primary" />
-                <h2 className="font-serif text-2xl font-semibold">Outgoing</h2>
-                <span className="text-sm text-muted-foreground">— books you've asked to borrow</span>
-              </div>
-
-              <div className="space-y-8">
-                <Section title="Pending" icon={<Clock className="h-4 w-4" />} count={outgoingPending.length}>
-                  {outgoingPending.length === 0 ? (
-                    <EmptyHint>No pending requests sent.</EmptyHint>
-                  ) : (
-                    outgoingPending.map((r) => (
-                      <RequestRow key={r.id} req={r} viewerIsLender={false} />
-                    ))
-                  )}
-                </Section>
-
-                <Section title="Confirm pickup" icon={<Handshake className="h-4 w-4" />} count={outgoingAccepted.length}>
-                  {outgoingAccepted.length === 0 ? (
-                    <EmptyHint>Nothing waiting for your confirmation.</EmptyHint>
-                  ) : (
-                    outgoingAccepted.map((r) => {
-                      const busy = handoverId === r.id;
-                      const alreadyConfirmed = r.borrower_confirmed;
-                      return (
-                        <RequestRow key={r.id} req={r} viewerIsLender={false}>
-                          {alreadyConfirmed ? (
-                            <Button size="sm" variant="outline" disabled>
-                              <Hourglass className="h-3.5 w-3.5 mr-1" /> Waiting for lender
-                            </Button>
-                          ) : (
-                            <Button
-                              size="sm"
-                              onClick={() =>
-                                handoverMutation.mutate({ id: r.id, side: "outgoing" })
-                              }
-                              disabled={busy}
-                            >
-                              {busy ? (
-                                <><Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> Confirming…</>
-                              ) : (
-                                <><Check className="h-3.5 w-3.5 mr-1" /> I received the book</>
-                              )}
-                            </Button>
-                          )}
-                        </RequestRow>
-                      );
-                    })
-                  )}
-                </Section>
-
-                <Section title="Active loans" icon={<PackageCheck className="h-4 w-4" />} count={outgoingActive.length}>
-                  {outgoingActive.length === 0 ? (
-                    <EmptyHint>No books currently borrowed.</EmptyHint>
-                  ) : (
-                    outgoingActive.map((r) => {
-                      const busy = returnId === r.id;
-                      const alreadyReturned = r.borrower_returned;
-                      return (
-                        <RequestRow key={r.id} req={r} viewerIsLender={false}>
-                          {alreadyReturned ? (
-                            <Button size="sm" variant="outline" disabled>
-                              <Hourglass className="h-3.5 w-3.5 mr-1" /> Waiting for lender to confirm return
-                            </Button>
-                          ) : (
-                            <Button
-                              size="sm"
-                              onClick={() =>
-                                returnMutation.mutate({ id: r.id, side: "outgoing" })
-                              }
-                              disabled={busy}
-                            >
-                              {busy ? (
-                                <><Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> Confirming…</>
-                              ) : (
-                                <><Undo2 className="h-3.5 w-3.5 mr-1" /> I returned the book</>
-                              )}
-                            </Button>
-                          )}
-                        </RequestRow>
-                      );
-                    })
-                  )}
-                </Section>
-
-                {outgoingHistory.length > 0 && (
-                  <Section title="History" icon={<CheckCircle2 className="h-4 w-4" />} count={outgoingHistory.length}>
-                    {outgoingHistory.map((r) => (
-                      <RequestRow key={r.id} req={r} viewerIsLender={false} />
-                    ))}
-                  </Section>
-                )}
-              </div>
-            </div>
+            {history.length > 0 && (
+              <>
+                <SectionLabel>Earlier</SectionLabel>
+                {history.map((r) => (
+                  <RequestItem key={r.id} req={r} side={tab} historical />
+                ))}
+              </>
+            )}
           </div>
         )}
       </main>
@@ -581,91 +326,204 @@ function RequestsPage() {
   );
 }
 
-function Section({
-  title,
-  icon,
-  count,
+function TabButton({
+  active,
+  onClick,
   children,
 }: {
-  title: string;
-  icon: React.ReactNode;
-  count: number;
+  active: boolean;
+  onClick: () => void;
   children: React.ReactNode;
 }) {
   return (
-    <section>
-      <div className="flex items-center gap-2 mb-3 text-sm font-medium text-muted-foreground">
-        {icon}
-        <span>{title}</span>
-        <span className="text-xs">({count})</span>
-      </div>
-      <div className="space-y-3">{children}</div>
-    </section>
+    <button
+      onClick={onClick}
+      className={cn(
+        "flex-1 h-11 text-sm font-medium relative transition-colors",
+        active ? "text-foreground" : "text-muted-foreground hover:text-foreground",
+      )}
+    >
+      {children}
+      {active && (
+        <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-foreground" />
+      )}
+    </button>
   );
 }
 
-function EmptyHint({ children }: { children: React.ReactNode }) {
+function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <div className="paper-card rounded-md p-4 text-sm text-muted-foreground">{children}</div>
+    <div className="px-4 pt-5 pb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground border-t border-border mt-1">
+      {children}
+    </div>
   );
 }
 
-function RequestRow({
+function RequestItem({
   req,
-  viewerIsLender,
-  children,
+  side,
+  busy,
+  waiting,
+  historical,
+  onAccept,
+  onReject,
+  onHandover,
+  onReturn,
 }: {
   req: TxRow;
-  viewerIsLender: boolean;
-  children?: React.ReactNode;
+  side: "incoming" | "outgoing";
+  busy?: boolean;
+  waiting?: boolean;
+  historical?: boolean;
+  onAccept?: () => void;
+  onReject?: () => void;
+  onHandover?: () => void;
+  onReturn?: () => void;
 }) {
-  const counterLabel = viewerIsLender ? "Requested by" : "Lender";
+  const name = req.counterparty?.display_name ?? "a member";
+  const bookTitle = req.book?.title ?? "Untitled";
+
+  // Compose preview / subtitle line based on state
+  let preview = "";
+  if (historical) {
+    preview = req.status === "completed" ? `Returned · ${bookTitle}` : `Declined · ${bookTitle}`;
+  } else if (req.status === "pending") {
+    preview = side === "incoming"
+      ? `wants to borrow "${bookTitle}"`
+      : `requested "${bookTitle}"`;
+  } else if (req.status === "accepted") {
+    preview = side === "incoming"
+      ? req.lender_confirmed
+        ? `Waiting for ${name} to confirm pickup`
+        : `Accepted · confirm when you've handed over "${bookTitle}"`
+      : req.borrower_confirmed
+        ? `Waiting for ${name} to confirm handover`
+        : `Accepted · confirm when you've received "${bookTitle}"`;
+  } else if (req.status === "active") {
+    preview = side === "incoming"
+      ? req.lender_returned
+        ? `Waiting for ${name} to confirm return`
+        : `On loan · confirm when you get "${bookTitle}" back`
+      : req.borrower_returned
+        ? `Waiting for ${name} to confirm return`
+        : `Borrowing "${bookTitle}" · mark as returned when done`;
+  }
+
   return (
-    <article className="paper-card rounded-lg p-4 flex gap-4 items-start">
-      <div className="w-14 h-20 flex-shrink-0 bg-muted rounded-sm overflow-hidden shadow-book">
-        {req.book?.cover_image ? (
-          <img
-            src={req.book.cover_image}
-            alt={`Cover of ${req.book.title}`}
-            className="w-full h-full object-cover"
-            loading="lazy"
-          />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/30 to-primary/10">
-            <BookOpen className="h-4 w-4 text-primary" />
+    <div className="flex items-start gap-3 px-4 py-3 border-b border-border hover:bg-muted/30 transition-colors">
+      {/* Avatar with book thumbnail badge */}
+      <Link
+        to="/messages"
+        search={{ to: req.counterparty?.id ?? "" }}
+        className="relative flex-shrink-0"
+        aria-label={`Message ${name}`}
+      >
+        <div className="w-14 h-14 rounded-full bg-gradient-to-br from-primary/30 to-primary/10 flex items-center justify-center text-sm font-semibold text-primary">
+          {initialsOf(req.counterparty?.display_name)}
+        </div>
+        {/* Mini book cover as IG-style story ring badge */}
+        <div className="absolute -bottom-1 -right-1 w-7 h-9 rounded-sm overflow-hidden border-2 border-background shadow-sm bg-muted">
+          {req.book?.cover_image ? (
+            <img
+              src={req.book.cover_image}
+              alt=""
+              className="w-full h-full object-cover"
+              loading="lazy"
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/30 to-primary/10">
+              <BookOpen className="h-3 w-3 text-primary" />
+            </div>
+          )}
+        </div>
+      </Link>
+
+      {/* Main content */}
+      <div className="flex-1 min-w-0 pt-0.5">
+        <div className="flex items-baseline gap-1.5 flex-wrap">
+          <span className="font-semibold text-sm truncate">{name}</span>
+          <span className="text-xs text-muted-foreground">· {timeAgo(req.created_at)}</span>
+        </div>
+        <p className={cn(
+          "text-sm text-muted-foreground leading-snug mt-0.5 line-clamp-2",
+          historical && "text-muted-foreground/70",
+        )}>
+          {preview}
+        </p>
+
+        {/* Action buttons — IG-style full-width pair */}
+        {!waiting && !historical && (
+          <div className="mt-2.5 flex gap-2">
+            {req.status === "pending" && side === "incoming" && (
+              <>
+                <Button
+                  size="sm"
+                  className="flex-1 h-8 text-xs font-semibold"
+                  onClick={onAccept}
+                  disabled={busy}
+                >
+                  {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Accept"}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  className="flex-1 h-8 text-xs font-semibold"
+                  onClick={onReject}
+                  disabled={busy}
+                >
+                  Decline
+                </Button>
+              </>
+            )}
+
+            {req.status === "accepted" && side === "incoming" && !req.lender_confirmed && (
+              <Button size="sm" className="flex-1 h-8 text-xs font-semibold" onClick={onHandover} disabled={busy}>
+                {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : (<><Handshake className="h-3.5 w-3.5 mr-1.5" />I handed it over</>)}
+              </Button>
+            )}
+            {req.status === "accepted" && side === "outgoing" && !req.borrower_confirmed && (
+              <Button size="sm" className="flex-1 h-8 text-xs font-semibold" onClick={onHandover} disabled={busy}>
+                {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : (<><Check className="h-3.5 w-3.5 mr-1.5" />I received it</>)}
+              </Button>
+            )}
+
+            {req.status === "active" && side === "incoming" && !req.lender_returned && (
+              <Button size="sm" className="flex-1 h-8 text-xs font-semibold" onClick={onReturn} disabled={busy}>
+                {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : (<><Undo2 className="h-3.5 w-3.5 mr-1.5" />Got it back</>)}
+              </Button>
+            )}
+            {req.status === "active" && side === "outgoing" && !req.borrower_returned && (
+              <Button size="sm" className="flex-1 h-8 text-xs font-semibold" onClick={onReturn} disabled={busy}>
+                {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : (<><Undo2 className="h-3.5 w-3.5 mr-1.5" />I returned it</>)}
+              </Button>
+            )}
+
+            <Button asChild size="sm" variant="ghost" className="h-8 px-2">
+              <Link to="/messages" search={{ to: req.counterparty?.id ?? "" }} aria-label="Message">
+                <MessageCircle className="h-4 w-4" />
+              </Link>
+            </Button>
+          </div>
+        )}
+
+        {waiting && (
+          <div className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
+            <Hourglass className="h-3 w-3" />
+            <span>Waiting on the other side</span>
           </div>
         )}
       </div>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-start justify-between gap-3 flex-wrap">
-          <div className="min-w-0">
-            <h3 className="font-serif font-semibold leading-snug truncate">
-              {req.book?.title ?? "Untitled"}
-            </h3>
-            {req.book?.author && (
-              <p className="text-xs text-muted-foreground mt-0.5 truncate">{req.book.author}</p>
-            )}
-            <p className="text-xs text-muted-foreground mt-2">
-              {counterLabel}{" "}
-              <span className="font-medium text-foreground">
-                {req.counterparty?.display_name ?? "a member"}
-              </span>
-            </p>
-          </div>
-          <div>{statusBadge(req, viewerIsLender)}</div>
-        </div>
-        <div className="mt-3 flex gap-2 flex-wrap items-center">
-          {children}
-          {req.counterparty && (
-            <Button asChild variant="outline" size="sm">
-              <Link to="/messages" search={{ to: req.counterparty.id }}>
-                <MessageCircle className="h-4 w-4 mr-1.5" />
-                Message
-              </Link>
-            </Button>
-          )}
-        </div>
-      </div>
-    </article>
+
+      {/* For pending incoming, IG shows a small X on the right — mirror that */}
+      {req.status === "pending" && side === "incoming" && !busy && (
+        <button
+          onClick={onReject}
+          className="p-1 -mr-1 text-muted-foreground hover:text-foreground flex-shrink-0"
+          aria-label="Decline"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      )}
+    </div>
   );
 }
