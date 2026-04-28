@@ -1,10 +1,20 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { BookOpen, Loader2, Leaf, Clock, Check, MessageCircle } from "lucide-react";
+import {
+  BookOpen,
+  Loader2,
+  Leaf,
+  Clock,
+  Check,
+  MessageCircle,
+  MapPin,
+  X,
+} from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { useCredits } from "@/hooks/use-credits";
+import { useUserLocation, distanceKm, formatDistance } from "@/hooks/use-location";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Button } from "@/components/ui/button";
 
@@ -42,9 +52,12 @@ interface BrowseBook {
 interface OwnerProfile {
   id: string;
   display_name: string | null;
+  location_lat: number | null;
+  location_lng: number | null;
+  location_label: string | null;
 }
 
-type FilterKey = "all" | "available";
+type FilterKey = "all" | "available" | "nearby";
 
 function BrowsePage() {
   const { user, loading: authLoading } = useAuth();
@@ -166,6 +179,13 @@ function BooksList({
   const [loading, setLoading] = useState(true);
   const [requesting, setRequesting] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterKey>("available");
+  const {
+    location,
+    loading: locLoading,
+    error: locError,
+    detect,
+    clear,
+  } = useUserLocation();
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -188,11 +208,11 @@ function BooksList({
     if (ownerIds.length > 0) {
       const { data: profileData } = await supabase
         .from("profiles")
-        .select("id, display_name")
+        .select("id, display_name, location_lat, location_lng, location_label")
         .in("id", ownerIds);
       const map: Record<string, OwnerProfile> = {};
       (profileData ?? []).forEach((p) => {
-        map[p.id] = p;
+        map[p.id] = p as OwnerProfile;
       });
       setOwners(map);
     }
@@ -228,10 +248,38 @@ function BooksList({
     toast.success("Borrow request sent");
   };
 
+  // Distance per book (if both locations are known)
+  const distances = useMemo(() => {
+    const map: Record<string, number> = {};
+    if (!location) return map;
+    books.forEach((b) => {
+      const o = owners[b.owner_id];
+      if (
+        o &&
+        typeof o.location_lat === "number" &&
+        typeof o.location_lng === "number"
+      ) {
+        map[b.id] = distanceKm(location, {
+          lat: o.location_lat,
+          lng: o.location_lng,
+        });
+      }
+    });
+    return map;
+  }, [books, owners, location]);
+
+  const NEARBY_KM = 50;
+
   const visibleBooks = useMemo(() => {
     let list = books;
-    if (filter === "available") {
+    if (filter === "available" || filter === "nearby") {
       list = list.filter((b) => b.owner_id !== user.id && b.status === "available");
+    }
+    if (filter === "nearby") {
+      list = list.filter((b) => {
+        const d = distances[b.id];
+        return typeof d === "number" && d <= NEARBY_KM;
+      });
     }
     if (query) {
       const q = query.toLowerCase();
@@ -242,15 +290,33 @@ function BooksList({
           (b.isbn ?? "").toLowerCase().includes(q),
       );
     }
+    // Priority sort: known nearest distance first, unknown last
+    if (location) {
+      list = [...list].sort((a, b) => {
+        const da = distances[a.id];
+        const db = distances[b.id];
+        if (da == null && db == null) return 0;
+        if (da == null) return 1;
+        if (db == null) return -1;
+        return da - db;
+      });
+    }
     return list;
-  }, [books, filter, user.id, query]);
+  }, [books, filter, user.id, query, distances, location]);
 
   const noCredits = (credits ?? 0) <= 0;
 
   const filterOptions: { key: FilterKey; label: string }[] = [
-    { key: "available", label: "Available to borrow" },
-    { key: "all", label: "All books" },
+    { key: "available", label: "Available" },
+    { key: "nearby", label: "Nearby" },
+    { key: "all", label: "All" },
   ];
+
+  const handleDetect = async () => {
+    const loc = await detect();
+    if (loc) toast.success(loc.label ? `Location set: ${loc.label}` : "Location set");
+    else if (locError) toast.error(locError);
+  };
 
   return (
     <>
@@ -263,6 +329,47 @@ function BooksList({
           to earn more.
         </div>
       )}
+
+      <div className="mb-4 paper-card rounded-md p-3 flex items-center gap-2 text-sm">
+        <MapPin className="h-4 w-4 text-primary flex-shrink-0" />
+        {location ? (
+          <>
+            <span className="min-w-0 flex-1 truncate">
+              <span className="text-muted-foreground">Showing books near </span>
+              <span className="font-medium">
+                {location.label ?? `${location.lat.toFixed(2)}, ${location.lng.toFixed(2)}`}
+              </span>
+            </span>
+            <button
+              onClick={handleDetect}
+              className="text-xs text-primary hover:underline flex-shrink-0"
+              disabled={locLoading}
+            >
+              {locLoading ? "Updating…" : "Update"}
+            </button>
+            <button
+              onClick={() => void clear()}
+              className="text-muted-foreground hover:text-foreground flex-shrink-0"
+              aria-label="Clear location"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </>
+        ) : (
+          <>
+            <span className="min-w-0 flex-1 text-muted-foreground">
+              Share your location to see books available nearby first.
+            </span>
+            <Button size="sm" variant="outline" onClick={handleDetect} disabled={locLoading}>
+              {locLoading ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                "Use my location"
+              )}
+            </Button>
+          </>
+        )}
+      </div>
 
       <div className="flex items-center justify-between flex-wrap gap-3 mb-5 sm:mb-6">
         <div className="inline-flex rounded-md border bg-card p-1">
@@ -364,6 +471,20 @@ function BooksList({
                       {isMine ? "You" : owner?.display_name ?? "a member"}
                     </span>
                   </p>
+                  {!isMine && (owner?.location_label || distances[book.id] != null) && (
+                    <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1 min-w-0">
+                      <MapPin className="h-3 w-3 flex-shrink-0 text-primary/70" />
+                      <span className="truncate">
+                        {distances[book.id] != null && (
+                          <span className="font-medium text-foreground">
+                            {formatDistance(distances[book.id])}
+                          </span>
+                        )}
+                        {distances[book.id] != null && owner?.location_label && " · "}
+                        {owner?.location_label}
+                      </span>
+                    </p>
+                  )}
                   <div className="mt-auto pt-3">
                     {isMine ? (
                       <Button size="sm" variant="outline" disabled className="w-full">
