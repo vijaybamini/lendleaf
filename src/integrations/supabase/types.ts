@@ -270,27 +270,7 @@ export type Database = {
       }
     }
     Views: {
-      public_profiles: {
-        Row: {
-          created_at: string | null
-          display_name: string | null
-          id: string | null
-          location_label: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          display_name?: string | null
-          id?: string | null
-          location_label?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          display_name?: string | null
-          id?: string | null
-          location_label?: string | null
-        }
-        Relationships: []
-      }
+      [_ in never]: never
     }
     Functions: {
       confirm_handover: {
@@ -298,6 +278,14 @@ export type Database = {
         Returns: undefined
       }
       confirm_return: { Args: { _transaction_id: string }; Returns: undefined }
+      get_my_location: {
+        Args: never
+        Returns: {
+          location_label: string
+          location_lat: number
+          location_lng: number
+        }[]
+      }
       nearby_book_distances: {
         Args: { _lat: number; _lng: number }
         Returns: {
