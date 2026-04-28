@@ -278,6 +278,21 @@ export type Database = {
         Returns: undefined
       }
       confirm_return: { Args: { _transaction_id: string }; Returns: undefined }
+      get_my_location: {
+        Args: never
+        Returns: {
+          location_label: string
+          location_lat: number
+          location_lng: number
+        }[]
+      }
+      nearby_book_distances: {
+        Args: { _lat: number; _lng: number }
+        Returns: {
+          book_id: string
+          distance_km: number
+        }[]
+      }
       request_borrow: { Args: { _book_id: string }; Returns: string }
       respond_to_request: {
         Args: { _accept: boolean; _transaction_id: string }

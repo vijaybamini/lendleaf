@@ -14,7 +14,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { useCredits } from "@/hooks/use-credits";
-import { useUserLocation, distanceKm, formatDistance } from "@/hooks/use-location";
+import { useUserLocation, formatDistance } from "@/hooks/use-location";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Button } from "@/components/ui/button";
 
@@ -52,8 +52,6 @@ interface BrowseBook {
 interface OwnerProfile {
   id: string;
   display_name: string | null;
-  location_lat: number | null;
-  location_lng: number | null;
   location_label: string | null;
 }
 
@@ -179,6 +177,7 @@ function BooksList({
   const [loading, setLoading] = useState(true);
   const [requesting, setRequesting] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterKey>("available");
+  const [distances, setDistances] = useState<Record<string, number>>({});
   const {
     location,
     loading: locLoading,
@@ -208,7 +207,7 @@ function BooksList({
     if (ownerIds.length > 0) {
       const { data: profileData } = await supabase
         .from("profiles")
-        .select("id, display_name, location_lat, location_lng, location_label")
+        .select("id, display_name, location_label")
         .in("id", ownerIds);
       const map: Record<string, OwnerProfile> = {};
       (profileData ?? []).forEach((p) => {
@@ -248,25 +247,29 @@ function BooksList({
     toast.success("Borrow request sent");
   };
 
-  // Distance per book (if both locations are known)
-  const distances = useMemo(() => {
-    const map: Record<string, number> = {};
-    if (!location) return map;
-    books.forEach((b) => {
-      const o = owners[b.owner_id];
-      if (
-        o &&
-        typeof o.location_lat === "number" &&
-        typeof o.location_lng === "number"
-      ) {
-        map[b.id] = distanceKm(location, {
-          lat: o.location_lat,
-          lng: o.location_lng,
-        });
-      }
-    });
-    return map;
-  }, [books, owners, location]);
+  // Load distances via a server RPC so other users' coordinates never leave the server.
+  useEffect(() => {
+    if (!location) {
+      setDistances({});
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase.rpc("nearby_book_distances", {
+        _lat: location.lat,
+        _lng: location.lng,
+      });
+      if (cancelled) return;
+      const map: Record<string, number> = {};
+      (data ?? []).forEach((row: { book_id: string; distance_km: number }) => {
+        map[row.book_id] = row.distance_km;
+      });
+      setDistances(map);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [location, books]);
 
   const NEARBY_KM = 50;
 

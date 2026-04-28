@@ -59,20 +59,18 @@ export function useUserLocation() {
     if (!user) return;
     let cancelled = false;
     (async () => {
-      const { data } = await supabase
-        .from("profiles")
-        .select("location_lat, location_lng, location_label")
-        .eq("id", user.id)
-        .maybeSingle();
+      const { data } = await supabase.rpc("get_my_location");
       if (cancelled || !data) return;
+      const row = Array.isArray(data) ? data[0] : data;
       if (
-        typeof data.location_lat === "number" &&
-        typeof data.location_lng === "number"
+        row &&
+        typeof row.location_lat === "number" &&
+        typeof row.location_lng === "number"
       ) {
         const loc = {
-          lat: data.location_lat,
-          lng: data.location_lng,
-          label: data.location_label ?? null,
+          lat: row.location_lat,
+          lng: row.location_lng,
+          label: row.location_label ?? null,
         };
         setLocation(loc);
         writeCached(loc);
