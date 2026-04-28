@@ -191,6 +191,9 @@ export type Database = {
           credits: number
           display_name: string | null
           id: string
+          location_label: string | null
+          location_lat: number | null
+          location_lng: number | null
           updated_at: string
         }
         Insert: {
@@ -198,6 +201,9 @@ export type Database = {
           credits?: number
           display_name?: string | null
           id: string
+          location_label?: string | null
+          location_lat?: number | null
+          location_lng?: number | null
           updated_at?: string
         }
         Update: {
@@ -205,6 +211,9 @@ export type Database = {
           credits?: number
           display_name?: string | null
           id?: string
+          location_label?: string | null
+          location_lat?: number | null
+          location_lng?: number | null
           updated_at?: string
         }
         Relationships: []
