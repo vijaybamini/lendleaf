@@ -67,7 +67,7 @@ export function SiteHeader() {
         return next;
       });
     } else {
-      navigate({ to: "/browse", search: { tab: "books" } });
+      navigate({ to: "/browse", search: {} });
     }
   };
 
