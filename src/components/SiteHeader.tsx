@@ -1,6 +1,6 @@
 import { Link, useNavigate, useLocation, useSearch } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { BookMarked, LogOut, Leaf, Search, Library, Inbox, MessageCircle, X } from "lucide-react";
+import { BookMarked, LogOut, Leaf, Search, Library, Inbox, MessageCircle, X, PenSquare } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { useCredits } from "@/hooks/use-credits";
 import { Button } from "@/components/ui/button";
