@@ -49,9 +49,7 @@ export function SiteHeader() {
   const submitSearch = (value: string) => {
     navigate({
       to: "/browse",
-      search: (prev) => ({
-        ...prev,
-        tab: "books" as const,
+      search: () => ({
         q: value.trim() || undefined,
       }),
     });
