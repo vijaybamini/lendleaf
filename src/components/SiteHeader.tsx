@@ -144,6 +144,11 @@ export function SiteHeader() {
                   <Inbox className="h-5 w-5" />
                 </Link>
               </Button>
+              <Button asChild variant="ghost" size="icon" title="Posts" aria-label="Posts & Write">
+                <Link to="/posts">
+                  <PenSquare className="h-5 w-5" />
+                </Link>
+              </Button>
               <Button asChild variant="ghost" size="icon" title="Messages" aria-label="Messages">
                 <Link to="/messages" search={{ to: undefined }}>
                   <MessageCircle className="h-5 w-5" />
