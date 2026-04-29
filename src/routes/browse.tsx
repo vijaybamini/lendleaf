@@ -22,8 +22,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 
 export const Route = createFileRoute("/browse")({
   component: BrowsePage,
-  validateSearch: (search: Record<string, unknown>): { tab?: "books" | "posts"; q?: string } => ({
-    tab: search.tab === "posts" ? "posts" : search.tab === "books" ? "books" : undefined,
+  validateSearch: (search: Record<string, unknown>): { q?: string } => ({
     q: typeof search.q === "string" && search.q.length > 0 ? search.q : undefined,
   }),
   head: () => ({
