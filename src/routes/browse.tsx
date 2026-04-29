@@ -58,14 +58,8 @@ type FilterKey = "all" | "available" | "nearby";
 function BrowsePage() {
   const { user, loading: authLoading } = useAuth();
   const { credits } = useCredits();
-  const navigate = useNavigate();
   const search = Route.useSearch();
-  const tab = search.tab ?? "books";
   const query = search.q ?? "";
-
-  const setTab = (next: "books" | "posts") => {
-    navigate({ to: "/browse", search: (prev) => ({ ...prev, tab: next }) });
-  };
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -75,14 +69,10 @@ function BrowsePage() {
         <div className="flex items-end justify-between flex-wrap gap-3 mb-5 sm:mb-6">
           <div className="min-w-0">
             <h1 className="font-serif text-3xl sm:text-4xl md:text-5xl font-semibold">
-              {tab === "posts" ? "Community" : "Browse"}
+              Browse
             </h1>
             <p className="text-muted-foreground mt-1 text-sm sm:text-base">
-              {tab === "posts"
-                ? "Thoughts and discussions from members"
-                : query
-                  ? `Results for "${query}"`
-                  : "The full LendLeaf library"}
+              {query ? `Results for "${query}"` : "The full LendLeaf library"}
             </p>
           </div>
           {user && (
@@ -95,32 +85,7 @@ function BrowsePage() {
           )}
         </div>
 
-        <div className="inline-flex rounded-md border bg-card p-1 mb-6 sm:mb-8">
-          <button
-            onClick={() => setTab("books")}
-            className={`px-3 sm:px-4 py-1.5 text-sm rounded-sm transition-colors flex items-center gap-1.5 ${
-              tab === "books"
-                ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <BookOpen className="h-4 w-4" /> Books
-          </button>
-          <button
-            onClick={() => setTab("posts")}
-            className={`px-3 sm:px-4 py-1.5 text-sm rounded-sm transition-colors flex items-center gap-1.5 ${
-              tab === "posts"
-                ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <MessageCircle className="h-4 w-4" /> Posts
-          </button>
-        </div>
-
-        {tab === "posts" ? (
-          <Feed />
-        ) : authLoading ? (
+        {authLoading ? (
           <div className="flex justify-center py-20">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
