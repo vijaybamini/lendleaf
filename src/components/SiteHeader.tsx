@@ -1,6 +1,6 @@
 import { Link, useNavigate, useLocation, useSearch } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { BookMarked, LogOut, Leaf, Search, Library, Inbox, MessageCircle, X } from "lucide-react";
+import { BookMarked, LogOut, Leaf, Search, Library, Inbox, MessageCircle, X, PenSquare } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { useCredits } from "@/hooks/use-credits";
 import { Button } from "@/components/ui/button";
@@ -49,9 +49,7 @@ export function SiteHeader() {
   const submitSearch = (value: string) => {
     navigate({
       to: "/browse",
-      search: (prev) => ({
-        ...prev,
-        tab: "books" as const,
+      search: () => ({
         q: value.trim() || undefined,
       }),
     });
@@ -69,7 +67,7 @@ export function SiteHeader() {
         return next;
       });
     } else {
-      navigate({ to: "/browse", search: { tab: "books" } });
+      navigate({ to: "/browse", search: {} });
     }
   };
 
@@ -144,6 +142,11 @@ export function SiteHeader() {
               <Button asChild variant="ghost" size="icon" title="Requests" aria-label="Requests">
                 <Link to="/requests">
                   <Inbox className="h-5 w-5" />
+                </Link>
+              </Button>
+              <Button asChild variant="ghost" size="icon" title="Posts" aria-label="Posts & Write">
+                <Link to="/posts">
+                  <PenSquare className="h-5 w-5" />
                 </Link>
               </Button>
               <Button asChild variant="ghost" size="icon" title="Messages" aria-label="Messages">
