@@ -18,7 +18,7 @@ import { SiteHeader } from "@/components/SiteHeader";
 import { Button } from "@/components/ui/button";
 
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Feed } from "@/components/Feed";
+
 
 export const Route = createFileRoute("/browse")({
   component: BrowsePage,
