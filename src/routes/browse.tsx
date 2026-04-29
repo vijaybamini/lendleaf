@@ -6,7 +6,6 @@ import {
   Leaf,
   Clock,
   Check,
-  MessageCircle,
   MapPin,
   X,
 } from "lucide-react";
