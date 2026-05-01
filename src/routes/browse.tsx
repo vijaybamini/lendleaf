@@ -149,6 +149,21 @@ function BooksList({
     clear,
   } = useUserLocation();
 
+  const fetchRequests = useCallback(async () => {
+    const { data, error } = await supabase
+      .from("transactions")
+      .select("book_id, status")
+      .eq("borrower_id", user.id)
+      .in("status", ["pending", "accepted", "active"]);
+
+    if (error) {
+      console.error("Couldn't load borrow request state", error);
+      return;
+    }
+
+    setRequestedBookIds(new Set((data ?? []).map((request) => request.book_id)));
+  }, [user.id]);
+
   const fetchData = useCallback(async () => {
     setLoading(true);
 
@@ -179,15 +194,9 @@ function BooksList({
       setOwners(map);
     }
 
-    const { data: txData } = await supabase
-      .from("transactions")
-      .select("book_id, status")
-      .eq("borrower_id", user.id)
-      .in("status", ["pending", "accepted", "active"]);
-    setRequestedBookIds(new Set((txData ?? []).map((t) => t.book_id)));
-
+    await fetchRequests();
     setLoading(false);
-  }, [user.id]);
+  }, [fetchRequests]);
 
   useEffect(() => {
     fetchData();
@@ -203,10 +212,13 @@ function BooksList({
     setRequesting(null);
 
     if (error) {
+      if (error.message?.toLowerCase().includes("already have an open request")) {
+        await fetchRequests();
+      }
       toast.error(error.message || "Couldn't send request");
       return;
     }
-    setRequestedBookIds((prev) => new Set(prev).add(book.id));
+    await fetchRequests();
     toast.success("Borrow request sent");
   };
 

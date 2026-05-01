@@ -126,6 +126,7 @@ export function Feed() {
       .limit(100);
 
     if (error) {
+      console.log(error);
       toast.error("Couldn't load posts");
       setLoading(false);
       return;

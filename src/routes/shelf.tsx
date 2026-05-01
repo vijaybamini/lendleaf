@@ -245,6 +245,7 @@ function BookSearch({
 
     if (error) {
       // Postgres unique violation (duplicate ISBN or external id for this user)
+      console.log(error);
       if (error.code === "23505") {
         toast.info("This book is already on your shelf");
         return;

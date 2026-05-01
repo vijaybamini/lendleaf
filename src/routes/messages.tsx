@@ -117,6 +117,7 @@ function MessagesPage() {
       .limit(500);
 
     if (error) {
+      console.log(error);
       toast.error("Couldn't load conversations");
       setLoadingConvs(false);
       return;
