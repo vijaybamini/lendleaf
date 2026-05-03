@@ -186,7 +186,7 @@ export function SiteHeader() {
                     <AlertDialogCancel onClick={async () => {
                         await signOut();
                         navigate({ to: "/" });
-                      }}>Sign ou</AlertDialogCancel>
+                      }}>Sign out</AlertDialogCancel>
                     <AlertDialogAction>
                       Cancel
                     </AlertDialogAction>
