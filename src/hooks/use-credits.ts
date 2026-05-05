@@ -2,6 +2,14 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 
+function createChannelId(userId: string) {
+  const nonce =
+    typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+      ? crypto.randomUUID()
+      : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+  return `profile-credits-${userId}-${nonce}`;
+}
+
 export function useCredits() {
   const { user } = useAuth();
   const [credits, setCredits] = useState<number | null>(null);
@@ -32,7 +40,7 @@ export function useCredits() {
     // Listen for profile changes (e.g. credits updated after a borrow)
     // Each hook instance needs its own channel topic because this hook is used
     // in multiple places at once (for example the header and the browse page).
-    const channel = supabase.channel(`profile-credits-${user.id}-${crypto.randomUUID()}`);
+    const channel = supabase.channel(createChannelId(user.id));
     channel
       .on(
         "postgres_changes",

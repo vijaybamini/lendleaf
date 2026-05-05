@@ -36,3 +36,4 @@ dist-ssr
 *.tsbuildinfo
 node_modules/.vite
 .vite
+beep.sh

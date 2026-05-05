@@ -1,10 +1,29 @@
 import { Link, useNavigate, useLocation, useSearch } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { BookMarked, LogOut, Leaf, Search, Library, Inbox, MessageCircle, X, PenSquare } from "lucide-react";
+import {
+  BookMarked,
+  LogOut,
+  Leaf,
+  Search,
+  Library,
+  Inbox,
+  MessageCircle,
+  X,
+  PenSquare,
+  Menu,
+  BookOpen,
+} from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { useCredits } from "@/hooks/use-credits";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -28,16 +47,18 @@ export function SiteHeader() {
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   const onBrowse = location.pathname === "/browse";
+  const onSearch = location.pathname === "/search";
 
   // Sync local input with URL when on /browse and auto-open if there's an active query
   useEffect(() => {
-    if (onBrowse) {
+    if (onBrowse || onSearch) {
       setQuery(search.q ?? "");
-      if (search.q) setSearchOpen(true);
+      if (onBrowse && search.q) setSearchOpen(true);
     } else {
+      setQuery("");
       setSearchOpen(false);
     }
-  }, [onBrowse, search.q]);
+  }, [onBrowse, onSearch, search.q]);
 
   // Focus input when opened
   useEffect(() => {
@@ -56,68 +77,65 @@ export function SiteHeader() {
   };
 
   const handleSearchIconClick = () => {
-    if (onBrowse) {
-      setSearchOpen((v) => {
-        const next = !v;
-        if (!next) {
-          // Closing — clear query
-          setQuery("");
-          submitSearch("");
-        }
-        return next;
-      });
-    } else {
-      navigate({ to: "/browse", search: {} });
-    }
+    // Always navigate to the dedicated search experience.
+    // This gives a consistent "tap search → get a search bar" behavior on mobile + desktop.
+    const existing = onBrowse ? (search.q ?? "") : "";
+    navigate({
+      to: "/search",
+      search: () => ({ q: existing.trim() || undefined }),
+    });
   };
 
   return (
     <header className="border-b border-border/60 bg-background/80 backdrop-blur sticky top-0 z-40">
-      <div className="container mx-auto flex h-16 items-center gap-2 sm:gap-3 px-3 sm:px-4 max-w-6xl">
+      <div className="container mx-auto flex h-14 sm:h-16 items-center gap-2 sm:gap-3 px-3 sm:px-4 max-w-6xl">
         <Link to="/" className="flex items-center gap-2 group flex-shrink-0">
           <BookMarked className="h-6 w-6 text-primary transition-transform group-hover:-rotate-6" />
-          <span className="font-serif text-lg sm:text-xl font-semibold tracking-tight hidden xs:inline sm:inline">
+          <span className="font-serif text-lg sm:text-xl font-semibold tracking-tight hidden sm:inline">
             LendLeaf
           </span>
         </Link>
 
         {user && onBrowse && searchOpen ? (
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              submitSearch(query);
-            }}
-            className="flex-1 max-w-md mx-1 sm:mx-2"
-            role="search"
-          >
-            <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-              <Input
-                ref={inputRef}
-                type="search"
-                value={query}
-                onChange={(e) => {
-                  setQuery(e.target.value);
-                  submitSearch(e.target.value);
-                }}
-                placeholder="Search books to borrow…"
-                className="pl-8 pr-8 h-9 text-sm"
-                aria-label="Search books"
-              />
-              <button
-                type="button"
-                onClick={() => {
-                  setQuery("");
-                  submitSearch("");
-                  setSearchOpen(false);
-                }}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                aria-label="Close search"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-          </form>
+          <>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                submitSearch(query);
+              }}
+              className="hidden flex-1 max-w-md mx-1 sm:mx-2 md:block"
+              role="search"
+            >
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                <Input
+                  ref={inputRef}
+                  type="search"
+                  value={query}
+                  onChange={(e) => {
+                    setQuery(e.target.value);
+                    submitSearch(e.target.value);
+                  }}
+                  placeholder="Search books to borrow..."
+                  className="pl-8 pr-8 h-9 text-sm"
+                  aria-label="Search books"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    setQuery("");
+                    submitSearch("");
+                    setSearchOpen(false);
+                  }}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  aria-label="Close search"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            </form>
+            <div className="flex-1 md:hidden" />
+          </>
         ) : (
           <div className="flex-1" />
         )}
@@ -125,35 +143,138 @@ export function SiteHeader() {
         <nav className="flex items-center gap-0.5 sm:gap-1 flex-shrink-0">
           {user ? (
             <>
-              <Button
-                variant="ghost"
-                size="icon"
-                title="Search books"
-                aria-label="Search books"
-                onClick={handleSearchIconClick}
-              >
-                <Search className="h-5 w-5" />
-              </Button>
-              <Button asChild variant="ghost" size="icon" title="My Shelf" aria-label="My Shelf">
-                <Link to="/shelf">
-                  <Library className="h-5 w-5" />
-                </Link>
-              </Button>
-              <Button asChild variant="ghost" size="icon" title="Requests" aria-label="Requests">
-                <Link to="/requests">
-                  <Inbox className="h-5 w-5" />
-                </Link>
-              </Button>
-              <Button asChild variant="ghost" size="icon" title="Posts" aria-label="Posts & Write">
-                <Link to="/posts">
-                  <PenSquare className="h-5 w-5" />
-                </Link>
-              </Button>
-              <Button asChild variant="ghost" size="icon" title="Messages" aria-label="Messages">
-                <Link to="/messages" search={{ to: undefined }}>
-                  <MessageCircle className="h-5 w-5" />
-                </Link>
-              </Button>
+              {/* Mobile overflow menu (mobile uses bottom navigation for primary actions) */}
+              <Sheet>
+                <SheetTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="md:hidden"
+                    aria-label="Menu"
+                    title="Menu"
+                  >
+                    <Menu className="h-5 w-5" />
+                  </Button>
+                </SheetTrigger>
+                <SheetContent side="right" className="w-[320px]">
+                  <SheetHeader>
+                    <SheetTitle className="font-serif">Menu</SheetTitle>
+                  </SheetHeader>
+
+                  <div className="mt-6 space-y-2">
+                    <Link
+                      to="/browse"
+                      className="flex items-center gap-3 rounded-md px-3 py-2 hover:bg-accent"
+                    >
+                      <BookOpen className="h-5 w-5 text-muted-foreground" />
+                      <span className="font-medium">Browse</span>
+                    </Link>
+                    <Link
+                      to="/shelf"
+                      className="flex items-center gap-3 rounded-md px-3 py-2 hover:bg-accent"
+                    >
+                      <Library className="h-5 w-5 text-muted-foreground" />
+                      <span className="font-medium">My Shelf</span>
+                    </Link>
+                    <Link
+                      to="/requests"
+                      className="flex items-center gap-3 rounded-md px-3 py-2 hover:bg-accent"
+                    >
+                      <Inbox className="h-5 w-5 text-muted-foreground" />
+                      <span className="font-medium">Requests</span>
+                    </Link>
+                    <Link
+                      to="/messages"
+                      search={{ to: undefined }}
+                      className="flex items-center gap-3 rounded-md px-3 py-2 hover:bg-accent"
+                    >
+                      <MessageCircle className="h-5 w-5 text-muted-foreground" />
+                      <span className="font-medium">Messages</span>
+                    </Link>
+                    <Link
+                      to="/posts"
+                      className="flex items-center gap-3 rounded-md px-3 py-2 hover:bg-accent"
+                    >
+                      <PenSquare className="h-5 w-5 text-muted-foreground" />
+                      <span className="font-medium">Posts</span>
+                    </Link>
+                  </div>
+
+                  {credits !== null && (
+                    <div className="mt-6 rounded-lg border border-border bg-card p-4">
+                      <div className="flex items-center gap-2 text-sm">
+                        <Leaf className="h-4 w-4 text-primary" />
+                        <span className="font-medium">
+                          {credits} Leaf Credit{credits === 1 ? "" : "s"}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Lend books to earn more credits.
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="mt-6 pt-4 border-t border-border">
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="outline" className="w-full justify-center">
+                          <LogOut className="h-4 w-4 mr-2" /> Sign out
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Sign out?</AlertDialogTitle>
+                          <AlertDialogDescription>Do you want to confirm?</AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel
+                            onClick={async () => {
+                              await signOut();
+                              navigate({ to: "/" });
+                            }}
+                          >
+                            Sign out
+                          </AlertDialogCancel>
+                          <AlertDialogAction>Cancel</AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
+                </SheetContent>
+              </Sheet>
+
+              {/* Desktop nav icons (mobile uses bottom navigation) */}
+              <div className="hidden md:flex items-center gap-0.5">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  title="Search books"
+                  aria-label="Search books"
+                  onClick={handleSearchIconClick}
+                >
+                  <Search className="h-5 w-5" />
+                </Button>
+                <Button asChild variant="ghost" size="icon" title="My Shelf" aria-label="My Shelf">
+                  <Link to="/shelf">
+                    <Library className="h-5 w-5" />
+                  </Link>
+                </Button>
+                <Button asChild variant="ghost" size="icon" title="Requests" aria-label="Requests">
+                  <Link to="/requests">
+                    <Inbox className="h-5 w-5" />
+                  </Link>
+                </Button>
+                <Button asChild variant="ghost" size="icon" title="Posts" aria-label="Posts & Write">
+                  <Link to="/posts">
+                    <PenSquare className="h-5 w-5" />
+                  </Link>
+                </Button>
+                <Button asChild variant="ghost" size="icon" title="Messages" aria-label="Messages">
+                  <Link to="/messages" search={{ to: undefined }}>
+                    <MessageCircle className="h-5 w-5" />
+                  </Link>
+                </Button>
+              </div>
               {credits !== null && (
                 <div
                   className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/10 text-primary text-xs font-medium"
@@ -164,6 +285,7 @@ export function SiteHeader() {
                   <span>{credits}</span>
                 </div>
               )}
+              {/* Desktop sign out */}
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <Button
@@ -171,6 +293,7 @@ export function SiteHeader() {
                     size="icon"
                     title="Sign out"
                     aria-label="Sign out"
+                    className="hidden md:inline-flex"
                   >
                     <LogOut className="h-5 w-5" />
                   </Button>
@@ -178,18 +301,18 @@ export function SiteHeader() {
                 <AlertDialogContent>
                   <AlertDialogHeader>
                     <AlertDialogTitle>Sign out?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Do you want to confirm?
-                    </AlertDialogDescription>
+                    <AlertDialogDescription>Do you want to confirm?</AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
-                    <AlertDialogCancel onClick={async () => {
+                    <AlertDialogCancel
+                      onClick={async () => {
                         await signOut();
                         navigate({ to: "/" });
-                      }}>Sign out</AlertDialogCancel>
-                    <AlertDialogAction>
-                      Cancel
-                    </AlertDialogAction>
+                      }}
+                    >
+                      Sign out
+                    </AlertDialogCancel>
+                    <AlertDialogAction>Cancel</AlertDialogAction>
                   </AlertDialogFooter>
                 </AlertDialogContent>
               </AlertDialog>
@@ -206,6 +329,43 @@ export function SiteHeader() {
           )}
         </nav>
       </div>
+      {user && !onSearch && (
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            submitSearch(query);
+          }}
+          className="border-t border-border/50 px-3 pb-3 pt-2 md:hidden"
+          role="search"
+        >
+          <div className="relative mx-auto max-w-6xl">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search books"
+              className="h-11 rounded-full bg-muted pl-10 pr-10 text-base"
+              aria-label="Search books"
+              autoComplete="off"
+              enterKeyHint="search"
+            />
+            {query && (
+              <button
+                type="button"
+                onClick={() => {
+                  setQuery("");
+                  if (onBrowse) submitSearch("");
+                }}
+                className="absolute right-3 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground hover:bg-background hover:text-foreground"
+                aria-label="Clear search"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+        </form>
+      )}
     </header>
   );
 }

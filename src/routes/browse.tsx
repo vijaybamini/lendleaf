@@ -65,7 +65,7 @@ function BrowsePage() {
     <div className="min-h-screen flex flex-col">
       <SiteHeader />
 
-      <main className="flex-1 container mx-auto px-3 sm:px-4 max-w-6xl py-6 sm:py-10">
+      <main className="flex-1 container mx-auto px-3 sm:px-4 max-w-6xl py-5 sm:py-10">
         <div className="flex items-end justify-between flex-wrap gap-3 mb-5 sm:mb-6">
           <div className="min-w-0">
             <h1 className="font-serif text-3xl sm:text-4xl md:text-5xl font-semibold">
@@ -399,7 +399,7 @@ function BooksList({
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
           {visibleBooks.map((book) => {
             const isMine = book.owner_id === user.id;
             const isLent = book.status !== "available";

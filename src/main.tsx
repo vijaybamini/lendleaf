@@ -1,6 +1,7 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { RouterProvider } from '@tanstack/react-router'
+import { ThemeProvider } from './lib/themeContext'
 import { getRouter } from './router' // Pulls the logic from your router.tsx
 import './styles.css' // Ensures your Tailwind/CSS loads
 
@@ -15,7 +16,9 @@ if (!rootElement.innerHTML) {
   const root = ReactDOM.createRoot(rootElement)
   root.render(
     <React.StrictMode>
-      <RouterProvider router={router} />
+      <ThemeProvider>
+        <RouterProvider router={router} />
+      </ThemeProvider>
     </React.StrictMode>,
   )
 }

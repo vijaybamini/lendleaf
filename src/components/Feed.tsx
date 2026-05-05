@@ -115,6 +115,8 @@ export function Feed() {
   const [posting, setPosting] = useState(false);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [composerOpen, setComposerOpen] = useState(false);
+  const [bookToolsOpen, setBookToolsOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const fetchPosts = useCallback(async () => {
@@ -233,6 +235,7 @@ export function Feed() {
     }
     setImageFile(file);
     setImagePreview(URL.createObjectURL(file));
+    setComposerOpen(true);
   };
 
   const clearComposer = () => {
@@ -244,6 +247,8 @@ export function Feed() {
     if (imagePreview) URL.revokeObjectURL(imagePreview);
     setImagePreview(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
+    setComposerOpen(false);
+    setBookToolsOpen(false);
   };
 
   const handlePost = async () => {
@@ -413,132 +418,255 @@ export function Feed() {
     toast.success("Post deleted");
   };
 
+  const viewerName = user
+    ? ((user.user_metadata as { display_name?: string })?.display_name ??
+      user.email ??
+      "?")
+    : "?";
+  const viewerInitial = viewerName.slice(0, 1).toUpperCase();
+  const hasBookDraft = Boolean(
+    selectedShelfBookId || newBookTitle.trim() || newBookAuthor.trim(),
+  );
+  const composerHasDraft = Boolean(newContent.trim() || imageFile || hasBookDraft);
+  const composerExpanded = composerOpen || composerHasDraft;
+  const showBookTools = bookToolsOpen || hasBookDraft;
+
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-[1fr_240px] gap-6">
-      <div className="space-y-4 sm:space-y-5">
+    <div className="grid grid-cols-1 gap-0 sm:gap-5 lg:grid-cols-[1fr_240px] lg:gap-6">
+      <div className="space-y-0 sm:space-y-5">
+        {trendingTags.length > 0 && (
+          <div className="border-b border-border/70 bg-background px-3 py-2 lg:hidden">
+            <div className="flex gap-2 overflow-x-auto">
+              <button
+                onClick={() => setActiveTag(null)}
+                className={`whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+                  !activeTag
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : "border-border bg-card text-muted-foreground"
+                }`}
+              >
+                For you
+              </button>
+              {trendingTags.map((t) => (
+                <button
+                  key={t}
+                  onClick={() => setActiveTag(t === activeTag ? null : t)}
+                  className={`whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+                    t === activeTag
+                      ? "border-primary bg-primary text-primary-foreground"
+                      : "border-border bg-card text-muted-foreground"
+                  }`}
+                >
+                  #{t}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Composer */}
         {user ? (
-          <div className="paper-card rounded-xl p-3 sm:p-4">
-            <div className="flex gap-3">
-              <div className="h-9 w-9 rounded-full bg-primary/15 text-primary flex items-center justify-center font-semibold text-sm flex-shrink-0">
-                {((user.user_metadata as { display_name?: string })?.display_name ?? user.email ?? "?")
-                  .slice(0, 1)
-                  .toUpperCase()}
+          <div className="border-b border-border bg-card p-3 sm:rounded-xl sm:border sm:p-4 sm:shadow-paper">
+            {!composerExpanded && (
+              <div className="flex items-center gap-3 sm:hidden">
+                <div className="h-9 w-9 rounded-full bg-primary/15 text-primary flex items-center justify-center font-semibold text-sm flex-shrink-0">
+                  {viewerInitial}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setComposerOpen(true)}
+                  className="min-h-11 flex-1 rounded-full border border-border bg-background px-4 text-left text-sm text-muted-foreground"
+                >
+                  Share a book thought
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setComposerOpen(true);
+                    fileInputRef.current?.click();
+                  }}
+                  className="flex h-11 w-11 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-primary"
+                  title="Add image"
+                  aria-label="Add image"
+                >
+                  <ImagePlus className="h-5 w-5" />
+                </button>
               </div>
-              <div className="flex-1 min-w-0">
-                <Textarea
-                  placeholder="What's on your mind? Use #tags for topics."
-                  value={newContent}
-                  onChange={(e) => setNewContent(e.target.value)}
-                  className="min-h-[70px] resize-none border-0 focus-visible:ring-0 px-0 shadow-none text-base"
-                  maxLength={2000}
-                />
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
-                  {myBooks.length > 0 && (
-                    <select
-                      value={selectedShelfBookId}
+            )}
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => handleImagePick(e.target.files?.[0] ?? null)}
+            />
+
+            <div className={composerExpanded ? "block" : "hidden sm:block"}>
+              <div className="flex gap-3">
+                <div className="h-9 w-9 rounded-full bg-primary/15 text-primary flex items-center justify-center font-semibold text-sm flex-shrink-0">
+                  {viewerInitial}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-start gap-2">
+                    <Textarea
+                      placeholder="What's on your mind? Use #tags for topics."
+                      value={newContent}
+                      onFocus={() => setComposerOpen(true)}
                       onChange={(e) => {
-                        setSelectedShelfBookId(e.target.value);
-                        if (e.target.value) {
-                          setNewBookTitle("");
-                          setNewBookAuthor("");
-                        }
+                        setComposerOpen(true);
+                        setNewContent(e.target.value);
                       }}
-                      className="text-sm rounded-md border border-input bg-transparent px-3 py-2"
-                    >
-                      <option value="">Tag a book from your shelf…</option>
-                      {myBooks.map((b) => (
-                        <option key={b.id} value={b.id}>
-                          {b.title}
-                        </option>
-                      ))}
-                    </select>
-                  )}
-                  {!selectedShelfBookId && (
-                    <>
-                      <Input
-                        placeholder="Or tag any book title…"
-                        value={newBookTitle}
-                        onChange={(e) => setNewBookTitle(e.target.value)}
-                        maxLength={200}
-                      />
-                      {newBookTitle && (
+                      className="min-h-[96px] resize-none border-0 px-0 text-base shadow-none focus-visible:ring-0 sm:min-h-[70px]"
+                      maxLength={2000}
+                    />
+                    {!composerHasDraft && (
+                      <button
+                        type="button"
+                        onClick={() => setComposerOpen(false)}
+                        className="-mr-2 -mt-2 flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground sm:hidden"
+                        aria-label="Close composer"
+                      >
+                        <XIcon className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
+                  <div
+                    className={`mt-2 grid-cols-1 gap-2 sm:grid sm:grid-cols-2 ${
+                      showBookTools ? "grid" : "hidden"
+                    }`}
+                  >
+                    {myBooks.length > 0 && (
+                      <select
+                        value={selectedShelfBookId}
+                        onChange={(e) => {
+                          setBookToolsOpen(true);
+                          setSelectedShelfBookId(e.target.value);
+                          if (e.target.value) {
+                            setNewBookTitle("");
+                            setNewBookAuthor("");
+                          }
+                        }}
+                        className="rounded-md border border-input bg-transparent px-3 py-2 text-sm"
+                      >
+                        <option value="">Tag a book from your shelf...</option>
+                        {myBooks.map((b) => (
+                          <option key={b.id} value={b.id}>
+                            {b.title}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                    {!selectedShelfBookId && (
+                      <>
                         <Input
-                          placeholder="Author (optional)"
-                          value={newBookAuthor}
-                          onChange={(e) => setNewBookAuthor(e.target.value)}
+                          placeholder="Or tag any book title..."
+                          value={newBookTitle}
+                          onFocus={() => setBookToolsOpen(true)}
+                          onChange={(e) => setNewBookTitle(e.target.value)}
                           maxLength={200}
                         />
-                      )}
-                    </>
-                  )}
-                </div>
-
-                {/* Image preview */}
-                {imagePreview && (
-                  <div className="relative mt-3 rounded-lg overflow-hidden border bg-muted">
-                    <img
-                      src={imagePreview}
-                      alt="Selected"
-                      className="w-full max-h-80 object-cover"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => handleImagePick(null)}
-                      className="absolute top-2 right-2 bg-background/90 hover:bg-background rounded-full p-1.5 shadow"
-                      aria-label="Remove image"
-                    >
-                      <XIcon className="h-4 w-4" />
-                    </button>
-                  </div>
-                )}
-
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={(e) => handleImagePick(e.target.files?.[0] ?? null)}
-                />
-
-                <div className="flex items-center justify-between mt-3 gap-2">
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      className="p-2 rounded-full hover:bg-muted text-muted-foreground hover:text-primary transition-colors"
-                      title="Add image"
-                      aria-label="Add image"
-                    >
-                      <ImagePlus className="h-5 w-5" />
-                    </button>
-                    <span className="text-xs text-muted-foreground">
-                      {newContent.length}/2000
-                    </span>
-                  </div>
-                  <Button
-                    size="sm"
-                    onClick={handlePost}
-                    disabled={posting || (!newContent.trim() && !imageFile)}
-                    className="rounded-full px-5"
-                  >
-                    {posting ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
-                        Posting…
-                      </>
-                    ) : (
-                      <>
-                        <Send className="h-4 w-4 mr-1.5" /> Post
+                        {newBookTitle && (
+                          <Input
+                            placeholder="Author (optional)"
+                            value={newBookAuthor}
+                            onFocus={() => setBookToolsOpen(true)}
+                            onChange={(e) => setNewBookAuthor(e.target.value)}
+                            maxLength={200}
+                          />
+                        )}
                       </>
                     )}
-                  </Button>
+                  </div>
+
+                  {/* Image preview */}
+                  {imagePreview && (
+                    <div className="relative mt-3 overflow-hidden rounded-xl border bg-muted">
+                      <img
+                        src={imagePreview}
+                        alt="Selected"
+                        className="max-h-80 w-full object-cover"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleImagePick(null)}
+                        className="absolute right-2 top-2 rounded-full bg-background/90 p-1.5 shadow hover:bg-background"
+                        aria-label="Remove image"
+                      >
+                        <XIcon className="h-4 w-4" />
+                      </button>
+                    </div>
+                  )}
+
+                  <div className="mt-3 flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setComposerOpen(true);
+                          fileInputRef.current?.click();
+                        }}
+                        className="rounded-full p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-primary"
+                        title="Add image"
+                        aria-label="Add image"
+                      >
+                        <ImagePlus className="h-5 w-5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setBookToolsOpen((open) => !open)}
+                        className={`flex min-h-9 items-center gap-1.5 rounded-full px-2.5 text-xs font-medium transition-colors sm:hidden ${
+                          showBookTools
+                            ? "bg-primary/10 text-primary"
+                            : "text-muted-foreground hover:bg-muted hover:text-primary"
+                        }`}
+                        aria-expanded={showBookTools}
+                      >
+                        <BookOpen className="h-4 w-4" />
+                        <span>Book</span>
+                      </button>
+                      <span className="ml-1 text-xs text-muted-foreground">
+                        {newContent.length}/2000
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {composerHasDraft && (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          onClick={clearComposer}
+                          disabled={posting}
+                          className="rounded-full px-3"
+                        >
+                          Clear
+                        </Button>
+                      )}
+                      <Button
+                        size="sm"
+                        onClick={handlePost}
+                        disabled={posting || (!newContent.trim() && !imageFile)}
+                        className="rounded-full px-5"
+                      >
+                        {posting ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                            Posting...
+                          </>
+                        ) : (
+                          <>
+                            <Send className="h-4 w-4 mr-1.5" /> Post
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
         ) : (
-          <div className="paper-card rounded-xl p-4 text-sm text-muted-foreground flex items-center justify-between flex-wrap gap-3">
+          <div className="border-b border-border bg-card p-4 text-sm text-muted-foreground flex items-center justify-between flex-wrap gap-3 sm:rounded-xl sm:border sm:shadow-paper">
             <span>Join the conversation — sign in to share your thoughts.</span>
             <div className="flex gap-2">
               <Link to="/login">
@@ -554,7 +682,7 @@ export function Feed() {
         )}
 
         {activeTag && (
-          <div className="flex items-center gap-2 text-sm">
+          <div className="hidden sm:flex items-center gap-2 text-sm">
             <span className="text-muted-foreground">Filtering by</span>
             <span className="font-medium text-primary">#{activeTag}</span>
             <button
@@ -571,7 +699,7 @@ export function Feed() {
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
         ) : visiblePosts.length === 0 ? (
-          <div className="paper-card rounded-xl py-16 px-6 text-center">
+          <div className="border-y border-border bg-card py-14 px-6 text-center sm:rounded-xl sm:border sm:py-16 sm:shadow-paper">
             <MessageCircle
               className="h-12 w-12 text-muted-foreground/60 mx-auto mb-4"
               strokeWidth={1.25}
@@ -586,7 +714,7 @@ export function Feed() {
             </p>
           </div>
         ) : (
-          <ul className="space-y-4 sm:space-y-5">
+          <ul className="space-y-0 sm:space-y-5">
             {visiblePosts.map((post) => {
               const isMine = user?.id === post.author_id;
               const displayName = post.author?.display_name ?? "Member";
@@ -600,196 +728,206 @@ export function Feed() {
               return (
                 <li
                   key={post.id}
-                  className="paper-card rounded-xl overflow-hidden hover:shadow-md transition-shadow"
+                  className="border-b border-border bg-card sm:rounded-xl sm:border sm:shadow-paper sm:overflow-hidden sm:hover:shadow-md sm:transition-shadow"
                 >
-                  {/* Header */}
-                  <div className="flex items-center gap-3 px-4 sm:px-5 pt-4">
-                    <div className="h-10 w-10 rounded-full bg-gradient-to-br from-primary/30 to-primary/10 text-primary flex items-center justify-center font-semibold text-sm flex-shrink-0 ring-2 ring-background">
-                      {initials}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-sm leading-tight truncate">
-                        {displayName}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {timeAgo(post.created_at)}
-                      </p>
-                    </div>
-                    {isMine ? (
-                      <button
-                        onClick={() => handleDeletePost(post.id)}
-                        className="text-muted-foreground hover:text-destructive p-1.5 rounded-full hover:bg-muted transition-colors"
-                        aria-label="Delete post"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    ) : user ? (
-                      <Link
-                        to="/messages"
-                        search={{ to: post.author_id }}
-                        className="text-muted-foreground hover:text-primary p-1.5 rounded-full hover:bg-muted transition-colors"
-                        aria-label={`Message ${displayName}`}
-                        title={`Message ${displayName}`}
-                      >
-                        <MessageSquare className="h-4 w-4" />
-                      </Link>
-                    ) : null}
-                  </div>
-
-                  {/* Content */}
-                  {post.content && (
-                    <div className="px-4 sm:px-5 pt-3">
-                      <p className="text-[15px] sm:text-base leading-relaxed whitespace-pre-wrap break-words font-serif">
-                        {renderContent(post.content, (t) => setActiveTag(t))}
-                      </p>
-                    </div>
-                  )}
-
-                  {/* Image */}
-                  {post.image_url && (
-                    <div className="mt-3 bg-muted">
-                      <img
-                        src={post.image_url}
-                        alt=""
-                        className="w-full max-h-[600px] object-cover"
-                        loading="lazy"
-                      />
-                    </div>
-                  )}
-
-                  {/* Tagged book card — Instagram-style media block */}
-                  {(post.book || post.tagged_book_title) && (
-                    <div className="mx-4 sm:mx-5 mt-3 flex items-center gap-3 p-3 rounded-lg border bg-gradient-to-br from-muted/40 to-muted/10">
-                      <div className="w-12 h-16 sm:w-14 sm:h-20 flex-shrink-0 bg-muted rounded-sm overflow-hidden shadow-book">
-                        {post.book?.cover_image ? (
-                          <img
-                            src={post.book.cover_image}
-                            alt=""
-                            className="w-full h-full object-cover"
-                            loading="lazy"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/30 to-primary/10">
-                            <BookOpen className="h-4 w-4 text-primary" />
-                          </div>
-                        )}
+                  <article className="flex gap-3 px-3 py-4 sm:px-5">
+                    <div className="flex flex-shrink-0 flex-col items-center">
+                      <div className="h-10 w-10 rounded-full bg-gradient-to-br from-primary/30 to-primary/10 text-primary flex items-center justify-center font-semibold text-sm ring-2 ring-background">
+                        {initials}
                       </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
-                          📖 Tagged book
-                        </p>
-                        <p className="font-serif font-semibold text-sm leading-tight line-clamp-1 mt-0.5">
-                          {post.book?.title ?? post.tagged_book_title}
-                        </p>
-                        {(post.book?.author ?? post.tagged_book_author) && (
-                          <p className="text-xs text-muted-foreground line-clamp-1">
-                            by {post.book?.author ?? post.tagged_book_author}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Hashtag chips (Medium-style) */}
-                  {post.hashtags.length > 0 && (
-                    <div className="px-4 sm:px-5 mt-3 flex flex-wrap gap-1.5">
-                      {post.hashtags.slice(0, 6).map((t) => (
-                        <button
-                          key={t}
-                          onClick={() => setActiveTag(t === activeTag ? null : t)}
-                          className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground hover:bg-primary/10 hover:text-primary transition-colors"
-                        >
-                          #{t}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Action bar (Instagram-style) */}
-                  <div className="flex items-center gap-1 px-2 sm:px-3 mt-4 border-t pt-1">
-                    <button
-                      onClick={() => handleLike(post)}
-                      className={`flex items-center gap-1.5 px-3 py-2 rounded-md hover:bg-muted transition-colors text-sm ${
-                        post.likedByMe ? "text-rose-500" : "text-muted-foreground"
-                      }`}
-                      aria-label="Like"
-                    >
-                      <Heart
-                        className={`h-5 w-5 transition-transform ${
-                          post.likedByMe ? "fill-current scale-110" : ""
-                        }`}
-                      />
-                      <span className="font-medium tabular-nums">{post.likeCount}</span>
-                    </button>
-                    <button
-                      onClick={() => toggleComments(post.id)}
-                      className="flex items-center gap-1.5 px-3 py-2 rounded-md hover:bg-muted transition-colors text-sm text-muted-foreground"
-                      aria-label="Comments"
-                    >
-                      <MessageCircle className="h-5 w-5" />
-                      <span className="font-medium tabular-nums">
-                        {post.commentCount}
-                      </span>
-                    </button>
-                  </div>
-
-                  {/* Comments */}
-                  {openCommentsFor === post.id && (
-                    <div className="px-4 sm:px-5 pb-4 pt-3 border-t bg-muted/20 space-y-3">
-                      {!commentsState ? (
-                        <div className="flex justify-center py-4">
-                          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                        </div>
-                      ) : (
-                        <>
-                          {commentsState.items.length === 0 ? (
-                            <p className="text-xs text-muted-foreground text-center py-2">
-                              No comments yet. Be the first.
-                            </p>
-                          ) : (
-                            <ul className="space-y-3">
-                              {commentsState.items.map((c) => (
-                                <li key={c.id} className="flex gap-2 text-sm">
-                                  <div className="h-7 w-7 rounded-full bg-primary/15 text-primary text-xs flex items-center justify-center font-semibold flex-shrink-0">
-                                    {(commentsState.authors[c.author_id]
-                                      ?.display_name ?? "?")
-                                      .slice(0, 1)
-                                      .toUpperCase()}
-                                  </div>
-                                  <div className="flex-1 min-w-0 bg-background rounded-2xl px-3 py-2">
-                                    <div className="flex items-baseline gap-2">
-                                      <span className="font-semibold text-sm">
-                                        {commentsState.authors[c.author_id]
-                                          ?.display_name ?? "Member"}
-                                      </span>
-                                      <span className="text-xs text-muted-foreground">
-                                        {timeAgo(c.created_at)}
-                                      </span>
-                                    </div>
-                                    <p className="whitespace-pre-wrap break-words text-sm">
-                                      {c.content}
-                                    </p>
-                                  </div>
-                                </li>
-                              ))}
-                            </ul>
-                          )}
-                          {user ? (
-                            <CommentBox
-                              onSubmit={(text) => handleAddComment(post.id, text)}
-                            />
-                          ) : (
-                            <p className="text-xs text-muted-foreground">
-                              <Link to="/login" className="underline">
-                                Sign in
-                              </Link>{" "}
-                              to comment.
-                            </p>
-                          )}
-                        </>
+                      {openCommentsFor === post.id && (
+                        <div className="mt-3 w-px flex-1 bg-border" aria-hidden="true" />
                       )}
                     </div>
-                  )}
+
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-start gap-2">
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm leading-tight">
+                            <span className="font-semibold">{displayName}</span>
+                            <span className="mx-1 text-muted-foreground">-</span>
+                            <span className="text-muted-foreground">
+                              {timeAgo(post.created_at)}
+                            </span>
+                          </p>
+                        </div>
+
+                        {isMine ? (
+                          <button
+                            onClick={() => handleDeletePost(post.id)}
+                            className="-mr-2 -mt-2 rounded-full p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-destructive"
+                            aria-label="Delete post"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        ) : null}
+                      </div>
+
+                      {post.content && (
+                        <p className="mt-1.5 whitespace-pre-wrap break-words text-[15px] leading-relaxed sm:text-base">
+                          {renderContent(post.content, (t) => setActiveTag(t))}
+                        </p>
+                      )}
+
+                      {post.image_url && (
+                        <div className="mt-3 overflow-hidden rounded-xl border border-border bg-muted">
+                          <img
+                            src={post.image_url}
+                            alt=""
+                            className="max-h-[520px] w-full object-cover"
+                            loading="lazy"
+                          />
+                        </div>
+                      )}
+
+                      {(post.book || post.tagged_book_title) && (
+                        <div className="mt-3 flex items-center gap-3 rounded-xl border border-border bg-muted/35 p-2.5">
+                          <div className="h-14 w-10 flex-shrink-0 overflow-hidden rounded-sm bg-muted shadow-book sm:h-16 sm:w-11">
+                            {post.book?.cover_image ? (
+                              <img
+                                src={post.book.cover_image}
+                                alt=""
+                                className="h-full w-full object-cover"
+                                loading="lazy"
+                              />
+                            ) : (
+                              <div className="flex h-full w-full items-center justify-center bg-primary/10">
+                                <BookOpen className="h-4 w-4 text-primary" />
+                              </div>
+                            )}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="flex items-center gap-1.5 text-[11px] font-medium uppercase text-muted-foreground">
+                              <BookOpen className="h-3.5 w-3.5" />
+                              Tagged book
+                            </p>
+                            <p className="mt-0.5 line-clamp-1 text-sm font-semibold leading-tight">
+                              {post.book?.title ?? post.tagged_book_title}
+                            </p>
+                            {(post.book?.author ?? post.tagged_book_author) && (
+                              <p className="line-clamp-1 text-xs text-muted-foreground">
+                                by {post.book?.author ?? post.tagged_book_author}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {post.hashtags.length > 0 && (
+                        <div className="mt-3 flex gap-1.5 overflow-x-auto sm:flex-wrap">
+                          {post.hashtags.slice(0, 6).map((t) => (
+                            <button
+                              key={t}
+                              onClick={() => setActiveTag(t === activeTag ? null : t)}
+                              className="whitespace-nowrap rounded-full bg-muted px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary"
+                            >
+                              #{t}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+
+                      <div className="mt-3 flex max-w-xs items-center justify-between text-muted-foreground">
+                        <button
+                          onClick={() => toggleComments(post.id)}
+                          className="flex min-h-9 items-center gap-2 rounded-full px-2 transition-colors hover:bg-muted hover:text-primary"
+                          aria-label="Comments"
+                        >
+                          <MessageCircle className="h-5 w-5" />
+                          <span className="text-sm font-medium tabular-nums">
+                            {post.commentCount}
+                          </span>
+                        </button>
+                        <button
+                          onClick={() => handleLike(post)}
+                          className={`flex min-h-9 items-center gap-2 rounded-full px-2 transition-colors hover:bg-muted ${
+                            post.likedByMe ? "text-rose-500" : "hover:text-rose-500"
+                          }`}
+                          aria-label="Like"
+                        >
+                          <Heart
+                            className={`h-5 w-5 transition-transform ${
+                              post.likedByMe ? "fill-current scale-110" : ""
+                            }`}
+                          />
+                          <span className="text-sm font-medium tabular-nums">
+                            {post.likeCount}
+                          </span>
+                        </button>
+                        {user && !isMine ? (
+                          <Link
+                            to="/messages"
+                            search={{ to: post.author_id }}
+                            className="flex min-h-9 items-center gap-2 rounded-full px-2 transition-colors hover:bg-muted hover:text-primary"
+                            aria-label={`Message ${displayName}`}
+                            title={`Message ${displayName}`}
+                          >
+                            <MessageSquare className="h-5 w-5" />
+                            <span className="sr-only">Message</span>
+                          </Link>
+                        ) : (
+                          <span className="h-9 w-9" aria-hidden="true" />
+                        )}
+                      </div>
+
+                      {openCommentsFor === post.id && (
+                        <div className="mt-2 space-y-3 rounded-xl bg-muted/35 p-3">
+                          {!commentsState ? (
+                            <div className="flex justify-center py-4">
+                              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                            </div>
+                          ) : (
+                            <>
+                              {commentsState.items.length === 0 ? (
+                                <p className="py-2 text-center text-xs text-muted-foreground">
+                                  No comments yet. Be the first.
+                                </p>
+                              ) : (
+                                <ul className="space-y-3">
+                                  {commentsState.items.map((c) => (
+                                    <li key={c.id} className="flex gap-2 text-sm">
+                                      <div className="h-7 w-7 rounded-full bg-primary/15 text-primary text-xs flex items-center justify-center font-semibold flex-shrink-0">
+                                        {(commentsState.authors[c.author_id]
+                                          ?.display_name ?? "?")
+                                          .slice(0, 1)
+                                          .toUpperCase()}
+                                      </div>
+                                      <div className="flex-1 min-w-0 rounded-2xl bg-background px-3 py-2">
+                                        <div className="flex items-baseline gap-2">
+                                          <span className="text-sm font-semibold">
+                                            {commentsState.authors[c.author_id]
+                                              ?.display_name ?? "Member"}
+                                          </span>
+                                          <span className="text-xs text-muted-foreground">
+                                            {timeAgo(c.created_at)}
+                                          </span>
+                                        </div>
+                                        <p className="whitespace-pre-wrap break-words text-sm">
+                                          {c.content}
+                                        </p>
+                                      </div>
+                                    </li>
+                                  ))}
+                                </ul>
+                              )}
+                              {user ? (
+                                <CommentBox
+                                  onSubmit={(text) => handleAddComment(post.id, text)}
+                                />
+                              ) : (
+                                <p className="text-xs text-muted-foreground">
+                                  <Link to="/login" className="underline">
+                                    Sign in
+                                  </Link>{" "}
+                                  to comment.
+                                </p>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </article>
                 </li>
               );
             })}
@@ -798,7 +936,7 @@ export function Feed() {
       </div>
 
       {/* Sidebar */}
-      <aside className="space-y-4 lg:sticky lg:top-24 self-start order-first lg:order-last">
+      <aside className="hidden space-y-4 lg:sticky lg:top-24 lg:block self-start">
         <div className="paper-card rounded-xl p-4">
           <h3 className="font-serif font-semibold flex items-center gap-1.5 mb-3">
             <Hash className="h-4 w-4" /> Trending topics

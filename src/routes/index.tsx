@@ -1,6 +1,7 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, Navigate } from "@tanstack/react-router";
 import { BookOpen, Users, Sprout, ArrowRight } from "lucide-react";
 import { SiteHeader } from "@/components/SiteHeader";
+import { AuthLoadingScreen } from "@/components/AuthLoadingScreen";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
 
@@ -9,13 +10,25 @@ export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
       { title: "LendLeaf — Share books with people you trust" },
-      { name: "description", content: "Build your shelf, lend to friends, borrow from neighbors. A quiet place for book lovers." },
+      {
+        name: "description",
+        content:
+          "Build your shelf, lend to friends, borrow from neighbors. A quiet place for book lovers.",
+      },
     ],
   }),
 });
 
 function Landing() {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return <AuthLoadingScreen message="Checking your account..." />;
+  }
+
+  if (user) {
+    return <Navigate to="/browse" />;
+  }
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -35,7 +48,8 @@ function Landing() {
                   Books are <em className="text-primary not-italic">better</em> when shared.
                 </h1>
                 <p className="mt-6 text-lg text-muted-foreground max-w-md leading-relaxed">
-                  Catalog your collection, lend to friends, and discover what your neighbors are reading. A quiet little library, between people.
+                  Catalog your collection, lend to friends, and discover what your neighbors are
+                  reading. A quiet little library, between people.
                 </p>
                 <div className="mt-8 flex flex-wrap gap-3">
                   {user ? (
@@ -123,9 +137,7 @@ function Landing() {
         {/* CTA strip */}
         {!user && (
           <section className="container mx-auto px-4 max-w-6xl py-20 text-center">
-            <h2 className="font-serif text-3xl md:text-4xl font-semibold mb-4">
-              Open the cover.
-            </h2>
+            <h2 className="font-serif text-3xl md:text-4xl font-semibold mb-4">Open the cover.</h2>
             <p className="text-muted-foreground mb-8 max-w-md mx-auto">
               Free, friendly, and built for readers who like the smell of paper.
             </p>

@@ -25,13 +25,16 @@ function PostsPage() {
   return (
     <div className="min-h-screen flex flex-col">
       <SiteHeader />
-      <main className="flex-1 container mx-auto px-3 sm:px-4 max-w-6xl py-6 sm:py-10">
-        <div className="mb-5 sm:mb-6">
-          <h1 className="font-serif text-3xl sm:text-4xl md:text-5xl font-semibold">
-            Community
+      <main className="flex-1 w-full mx-auto max-w-6xl sm:px-4 sm:py-10">
+        <div className="border-b border-border/70 bg-background/95 px-4 py-3 sm:mb-6 sm:border-0 sm:bg-transparent sm:px-0 sm:py-0">
+          <h1 className="font-serif text-xl font-semibold sm:text-4xl md:text-5xl">
+            Posts
           </h1>
-          <p className="text-muted-foreground mt-1 text-sm sm:text-base">
+          <p className="hidden text-muted-foreground mt-1 text-sm sm:block sm:text-base">
             Thoughts and discussions from members
+          </p>
+          <p className="text-xs text-muted-foreground sm:hidden">
+            Book talk from your lending circle
           </p>
         </div>
         <Feed />

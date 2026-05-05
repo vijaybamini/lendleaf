@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as ShelfRouteImport } from './routes/shelf'
+import { Route as SearchRouteImport } from './routes/search'
 import { Route as RequestsRouteImport } from './routes/requests'
 import { Route as PostsRouteImport } from './routes/posts'
 import { Route as MessagesRouteImport } from './routes/messages'
@@ -26,6 +27,11 @@ const SignupRoute = SignupRouteImport.update({
 const ShelfRoute = ShelfRouteImport.update({
   id: '/shelf',
   path: '/shelf',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SearchRoute = SearchRouteImport.update({
+  id: '/search',
+  path: '/search',
   getParentRoute: () => rootRouteImport,
 } as any)
 const RequestsRoute = RequestsRouteImport.update({
@@ -66,6 +72,7 @@ export interface FileRoutesByFullPath {
   '/messages': typeof MessagesRoute
   '/posts': typeof PostsRoute
   '/requests': typeof RequestsRoute
+  '/search': typeof SearchRoute
   '/shelf': typeof ShelfRoute
   '/signup': typeof SignupRoute
 }
@@ -76,6 +83,7 @@ export interface FileRoutesByTo {
   '/messages': typeof MessagesRoute
   '/posts': typeof PostsRoute
   '/requests': typeof RequestsRoute
+  '/search': typeof SearchRoute
   '/shelf': typeof ShelfRoute
   '/signup': typeof SignupRoute
 }
@@ -87,6 +95,7 @@ export interface FileRoutesById {
   '/messages': typeof MessagesRoute
   '/posts': typeof PostsRoute
   '/requests': typeof RequestsRoute
+  '/search': typeof SearchRoute
   '/shelf': typeof ShelfRoute
   '/signup': typeof SignupRoute
 }
@@ -99,6 +108,7 @@ export interface FileRouteTypes {
     | '/messages'
     | '/posts'
     | '/requests'
+    | '/search'
     | '/shelf'
     | '/signup'
   fileRoutesByTo: FileRoutesByTo
@@ -109,6 +119,7 @@ export interface FileRouteTypes {
     | '/messages'
     | '/posts'
     | '/requests'
+    | '/search'
     | '/shelf'
     | '/signup'
   id:
@@ -119,6 +130,7 @@ export interface FileRouteTypes {
     | '/messages'
     | '/posts'
     | '/requests'
+    | '/search'
     | '/shelf'
     | '/signup'
   fileRoutesById: FileRoutesById
@@ -130,6 +142,7 @@ export interface RootRouteChildren {
   MessagesRoute: typeof MessagesRoute
   PostsRoute: typeof PostsRoute
   RequestsRoute: typeof RequestsRoute
+  SearchRoute: typeof SearchRoute
   ShelfRoute: typeof ShelfRoute
   SignupRoute: typeof SignupRoute
 }
@@ -148,6 +161,13 @@ declare module '@tanstack/react-router' {
       path: '/shelf'
       fullPath: '/shelf'
       preLoaderRoute: typeof ShelfRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/search': {
+      id: '/search'
+      path: '/search'
+      fullPath: '/search'
+      preLoaderRoute: typeof SearchRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/requests': {
@@ -202,6 +222,7 @@ const rootRouteChildren: RootRouteChildren = {
   MessagesRoute: MessagesRoute,
   PostsRoute: PostsRoute,
   RequestsRoute: RequestsRoute,
+  SearchRoute: SearchRoute,
   ShelfRoute: ShelfRoute,
   SignupRoute: SignupRoute,
 }

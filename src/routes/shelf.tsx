@@ -91,8 +91,8 @@ function ShelfPage() {
     <div className="min-h-screen flex flex-col">
       <SiteHeader />
 
-      <main className="flex-1 container mx-auto px-4 max-w-6xl py-10">
-        <div className="flex items-end justify-between flex-wrap gap-4 mb-8">
+      <main className="flex-1 container mx-auto px-3 sm:px-4 max-w-6xl py-6 sm:py-10">
+        <div className="flex items-end justify-between flex-wrap gap-4 mb-6 sm:mb-8">
           <div>
             <h1 className="font-serif text-4xl md:text-5xl font-semibold">My Shelf</h1>
             <p className="text-muted-foreground mt-1">
@@ -104,7 +104,7 @@ function ShelfPage() {
 
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
-              <Button size="lg">
+              <Button size="lg" className="hidden md:inline-flex">
                 <Plus className="h-4 w-4 mr-1" /> Add a book
               </Button>
             </DialogTrigger>
@@ -123,6 +123,17 @@ function ShelfPage() {
             </DialogContent>
           </Dialog>
         </div>
+
+        {/* Mobile floating action button */}
+        <button
+          type="button"
+          onClick={() => setDialogOpen(true)}
+          className="md:hidden fixed right-4 bottom-[calc(16px+64px+env(safe-area-inset-bottom))] rounded-full bg-primary text-primary-foreground shadow-lg px-4 h-12 inline-flex items-center gap-2"
+          aria-label="Add a book"
+        >
+          <Plus className="h-4 w-4" />
+          <span className="text-sm font-medium">Add</span>
+        </button>
 
         {loadingBooks ? (
           <div className="flex justify-center py-20">

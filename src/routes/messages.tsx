@@ -353,7 +353,7 @@ function MessagesPage() {
     <div className="min-h-screen bg-background">
       <SiteHeader />
       <main className="container mx-auto max-w-5xl px-0 sm:px-4 py-0 sm:py-6">
-        <div className="sm:paper-card sm:rounded-xl overflow-hidden grid grid-cols-1 md:grid-cols-[320px_1fr] h-[calc(100vh-64px)] sm:h-[calc(100vh-120px)]">
+        <div className="sm:paper-card sm:rounded-xl overflow-hidden grid grid-cols-1 md:grid-cols-[320px_1fr] h-[calc(100dvh-56px-64px)] sm:h-[calc(100dvh-120px-64px)] md:h-[calc(100dvh-120px)]">
           {/* Conversation list — hidden on mobile when a chat is open */}
           <aside
             className={`border-r bg-card flex flex-col ${

@@ -1,7 +1,16 @@
-import { Outlet, createRootRouteWithContext, HeadContent, Scripts, Link } from "@tanstack/react-router";
+import {
+  Outlet,
+  createRootRouteWithContext,
+  HeadContent,
+  Scripts,
+  Link,
+} from "@tanstack/react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
 import { Toaster } from "@/components/ui/sonner";
-import { AuthProvider } from "@/lib/auth";
+import { AuthLoadingScreen } from "@/components/AuthLoadingScreen";
+import { AuthProvider, useAuth } from "@/lib/auth";
+import { MobileBottomNav } from "@/components/MobileBottomNav";
 import appCss from "../styles.css?url";
 
 interface RouterContext {
@@ -36,21 +45,44 @@ export const Route = createRootRouteWithContext<RouterContext>()({
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: "lending application" },
-      { name: "description", content: "A peer-to-peer book sharing community. Lend, borrow, and discover books from neighbors and friends." },
+      {
+        name: "description",
+        content:
+          "A peer-to-peer book sharing community. Lend, borrow, and discover books from neighbors and friends.",
+      },
       { property: "og:title", content: "lending application" },
-      { property: "og:description", content: "A peer-to-peer book sharing community. Lend, borrow, and discover books from neighbors and friends." },
+      {
+        property: "og:description",
+        content:
+          "A peer-to-peer book sharing community. Lend, borrow, and discover books from neighbors and friends.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:title", content: "lending application" },
-      { name: "twitter:description", content: "A peer-to-peer book sharing community. Lend, borrow, and discover books from neighbors and friends." },
-      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/afebd24c-8640-4e48-8b85-0124640277a0/id-preview-6854c9a3--b23741ea-ebce-431e-b8a3-52e27976b0d4.lovable.app-1777136967382.png" },
-      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/afebd24c-8640-4e48-8b85-0124640277a0/id-preview-6854c9a3--b23741ea-ebce-431e-b8a3-52e27976b0d4.lovable.app-1777136967382.png" },
+      {
+        name: "twitter:description",
+        content:
+          "A peer-to-peer book sharing community. Lend, borrow, and discover books from neighbors and friends.",
+      },
+      {
+        property: "og:image",
+        content:
+          "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/afebd24c-8640-4e48-8b85-0124640277a0/id-preview-6854c9a3--b23741ea-ebce-431e-b8a3-52e27976b0d4.lovable.app-1777136967382.png",
+      },
+      {
+        name: "twitter:image",
+        content:
+          "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/afebd24c-8640-4e48-8b85-0124640277a0/id-preview-6854c9a3--b23741ea-ebce-431e-b8a3-52e27976b0d4.lovable.app-1777136967382.png",
+      },
       { name: "twitter:card", content: "summary_large_image" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
-      { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600&display=swap" },
+      {
+        rel: "stylesheet",
+        href: "https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600&display=swap",
+      },
     ],
   }),
   shellComponent: RootShell,
@@ -59,9 +91,57 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 });
 
 function RootShell({ children }: { children: React.ReactNode }) {
+  const [isDark, setIsDark] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    const htmlElement = document.documentElement;
+    return (
+      htmlElement.classList.contains("dark") ||
+      htmlElement.getAttribute("data-theme") === "dark" ||
+      window.matchMedia("(prefers-color-scheme: dark)").matches
+    );
+  });
+
+  useEffect(() => {
+    const htmlElement = document.documentElement;
+    const applyTheme = (dark: boolean) => {
+      if (dark) {
+        htmlElement.setAttribute("data-theme", "dark");
+        htmlElement.classList.add("dark");
+      } else {
+        htmlElement.removeAttribute("data-theme");
+        htmlElement.classList.remove("dark");
+      }
+    };
+
+    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    setIsDark(prefersDark);
+    applyTheme(prefersDark);
+
+    // Listen for system theme changes
+    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+    const handleChange = (e: MediaQueryListEvent) => {
+      setIsDark(e.matches);
+      applyTheme(e.matches);
+    };
+
+    mediaQuery.addEventListener("change", handleChange);
+    return () => mediaQuery.removeEventListener("change", handleChange);
+  }, []);
+
   return (
-    <html lang="en">
+    <html
+      suppressHydrationWarning
+      lang="en"
+      data-theme={isDark ? "dark" : undefined}
+      className={isDark ? "dark" : undefined}
+    >
       <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              "(function(){try{var d=window.matchMedia('(prefers-color-scheme: dark)').matches;var e=document.documentElement;if(d){e.setAttribute('data-theme','dark');e.classList.add('dark')}else{e.removeAttribute('data-theme');e.classList.remove('dark')}}catch(e){}})();",
+          }}
+        />
         <HeadContent />
       </head>
       <body>
@@ -72,12 +152,27 @@ function RootShell({ children }: { children: React.ReactNode }) {
   );
 }
 
+function AuthGuard() {
+  const { loading } = useAuth();
+
+  if (loading) {
+    return <AuthLoadingScreen />;
+  }
+
+  return (
+    <>
+      <Outlet />
+      <MobileBottomNav />
+    </>
+  );
+}
+
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <Outlet />
+        <AuthGuard />
         <Toaster />
       </AuthProvider>
     </QueryClientProvider>

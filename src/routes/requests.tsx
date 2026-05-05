@@ -230,9 +230,9 @@ function RequestsPage() {
     <div className="min-h-screen flex flex-col bg-background">
       <SiteHeader />
 
-      <main className="flex-1 w-full max-w-2xl mx-auto">
+      <main className="flex-1 w-full max-w-2xl md:max-w-5xl mx-auto">
         {/* IG-style header */}
-        <div className="sticky top-16 z-10 bg-background/95 backdrop-blur border-b border-border">
+        <div className="sticky top-14 sm:top-16 z-10 bg-background/95 backdrop-blur border-b border-border">
           <div className="flex items-center gap-2 px-4 h-12">
             <button
               onClick={() => navigate({ to: "/" })}
