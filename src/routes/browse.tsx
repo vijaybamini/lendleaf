@@ -14,7 +14,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { useCredits } from "@/hooks/use-credits";
 import { useUserLocation, formatDistance } from "@/hooks/use-location";
-import { SiteHeader } from "@/components/SiteHeader";
 import { Button } from "@/components/ui/button";
 
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -62,39 +61,35 @@ function BrowsePage() {
   const query = search.q ?? "";
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <SiteHeader />
-
-      <main className="flex-1 container mx-auto px-3 sm:px-4 max-w-6xl py-5 sm:py-10">
-        <div className="flex items-end justify-between flex-wrap gap-3 mb-5 sm:mb-6">
-          <div className="min-w-0">
-            <h1 className="font-serif text-3xl sm:text-4xl md:text-5xl font-semibold">
-              Browse
-            </h1>
-            <p className="text-muted-foreground mt-1 text-sm sm:text-base">
-              {query ? `Results for "${query}"` : "The full LendLeaf library"}
-            </p>
-          </div>
-          {user && (
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 text-primary text-xs sm:text-sm font-medium">
-              <Leaf className="h-4 w-4" />
-              <span>
-                {credits ?? 0} Leaf Credit{credits === 1 ? "" : "s"}
-              </span>
-            </div>
-          )}
+    <div className="px-3 py-5 sm:px-4 sm:py-8">
+      <div className="mb-5 flex flex-wrap items-end justify-between gap-3 sm:mb-6">
+        <div className="min-w-0">
+          <h1 className="font-serif text-3xl font-semibold text-white sm:text-4xl md:text-5xl">
+            Browse
+          </h1>
+          <p className="mt-1 text-sm text-zinc-400 sm:text-base">
+            {query ? `Results for "${query}"` : "The full Lend Leaf library"}
+          </p>
         </div>
-
-        {authLoading ? (
-          <div className="flex justify-center py-20">
-            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        {user && (
+          <div className="flex items-center gap-2 rounded-full bg-emerald-400/10 px-3 py-1.5 text-xs font-medium text-emerald-300 sm:text-sm">
+            <Leaf className="h-4 w-4" />
+            <span>
+              {credits ?? 0} Leaf Credit{credits === 1 ? "" : "s"}
+            </span>
           </div>
-        ) : !user ? (
-          <SignInPrompt />
-        ) : (
-          <BooksList user={user} credits={credits} query={query} />
         )}
-      </main>
+      </div>
+
+      {authLoading ? (
+        <div className="flex justify-center py-20">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </div>
+      ) : !user ? (
+        <SignInPrompt />
+      ) : (
+        <BooksList user={user} credits={credits} query={query} />
+      )}
     </div>
   );
 }

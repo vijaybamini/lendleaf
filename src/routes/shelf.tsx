@@ -4,7 +4,6 @@ import { Search, Plus, Trash2, BookOpen, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
-import { SiteHeader } from "@/components/SiteHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -88,67 +87,63 @@ function ShelfPage() {
   );
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <SiteHeader />
-
-      <main className="flex-1 container mx-auto px-3 sm:px-4 max-w-6xl py-6 sm:py-10">
-        <div className="flex items-end justify-between flex-wrap gap-4 mb-6 sm:mb-8">
-          <div>
-            <h1 className="font-serif text-4xl md:text-5xl font-semibold">My Shelf</h1>
-            <p className="text-muted-foreground mt-1">
-              {books.length === 0
-                ? "Your library is empty. Search for a book to start sharing!"
-                : `${books.length} ${books.length === 1 ? "book" : "books"} in your collection`}
-            </p>
-          </div>
-
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogTrigger asChild>
-              <Button size="lg" className="hidden md:inline-flex">
-                <Plus className="h-4 w-4 mr-1" /> Add a book
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-xl">
-              <DialogHeader>
-                <DialogTitle className="font-serif text-2xl">Find a book</DialogTitle>
-              </DialogHeader>
-              <BookSearch
-                onAdded={() => {
-                  fetchBooks();
-                  setDialogOpen(false);
-                }}
-                ownedIsbns={ownedIsbns}
-                ownedExtIds={ownedExtIds}
-              />
-            </DialogContent>
-          </Dialog>
+    <div className="px-3 py-6 sm:px-4 sm:py-8">
+      <div className="mb-6 flex flex-wrap items-end justify-between gap-4 sm:mb-8">
+        <div>
+          <h1 className="font-serif text-4xl font-semibold text-white md:text-5xl">My Shelf</h1>
+          <p className="mt-1 text-zinc-400">
+            {books.length === 0
+              ? "Your library is empty. Search for a book to start sharing!"
+              : `${books.length} ${books.length === 1 ? "book" : "books"} in your collection`}
+          </p>
         </div>
 
-        {/* Mobile floating action button */}
-        <button
-          type="button"
-          onClick={() => setDialogOpen(true)}
-          className="md:hidden fixed right-4 bottom-[calc(16px+64px+env(safe-area-inset-bottom))] rounded-full bg-primary text-primary-foreground shadow-lg px-4 h-12 inline-flex items-center gap-2"
-          aria-label="Add a book"
-        >
-          <Plus className="h-4 w-4" />
-          <span className="text-sm font-medium">Add</span>
-        </button>
+        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <DialogTrigger asChild>
+            <Button size="lg" className="hidden md:inline-flex">
+              <Plus className="h-4 w-4 mr-1" /> Add a book
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-xl">
+            <DialogHeader>
+              <DialogTitle className="font-serif text-2xl">Find a book</DialogTitle>
+            </DialogHeader>
+            <BookSearch
+              onAdded={() => {
+                fetchBooks();
+                setDialogOpen(false);
+              }}
+              ownedIsbns={ownedIsbns}
+              ownedExtIds={ownedExtIds}
+            />
+          </DialogContent>
+        </Dialog>
+      </div>
 
-        {loadingBooks ? (
-          <div className="flex justify-center py-20">
-            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-          </div>
-        ) : books.length === 0 ? (
-          <EmptyShelf onAdd={() => setDialogOpen(true)} />
-        ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
-            {books.map((book) => (
-              <BookCard key={book.id} book={book} onDelete={() => handleDelete(book.id)} />
-            ))}
-          </div>
-        )}
-      </main>
+      {/* Mobile floating action button */}
+      <button
+        type="button"
+        onClick={() => setDialogOpen(true)}
+        className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] right-4 inline-flex h-12 items-center gap-2 rounded-full bg-primary px-4 text-primary-foreground shadow-lg md:hidden"
+        aria-label="Add a book"
+      >
+        <Plus className="h-4 w-4" />
+        <span className="text-sm font-medium">Add</span>
+      </button>
+
+      {loadingBooks ? (
+        <div className="flex justify-center py-20">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </div>
+      ) : books.length === 0 ? (
+        <EmptyShelf onAdd={() => setDialogOpen(true)} />
+      ) : (
+        <div className="grid grid-cols-2 gap-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+          {books.map((book) => (
+            <BookCard key={book.id} book={book} onDelete={() => handleDelete(book.id)} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

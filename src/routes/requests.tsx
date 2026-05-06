@@ -15,7 +15,7 @@ import {
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
-import { SiteHeader } from "@/components/SiteHeader";
+import { SimpleHeader } from "@/components/headers/SimpleHeader";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -227,27 +227,12 @@ function RequestsPage() {
   const history = list.filter((r) => ["completed", "rejected"].includes(r.status));
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
-      <SiteHeader />
+    <>
+      <SimpleHeader title="Requests" showBack={false} />
 
       <main className="flex-1 w-full max-w-2xl md:max-w-5xl mx-auto">
-        {/* IG-style header */}
+        {/* Tabs */}
         <div className="sticky top-14 sm:top-16 z-10 bg-background/95 backdrop-blur border-b border-border">
-          <div className="flex items-center gap-2 px-4 h-12">
-            <button
-              onClick={() => navigate({ to: "/" })}
-              className="p-1 -ml-1 rounded-full hover:bg-muted"
-              aria-label="Back"
-            >
-              <ChevronLeft className="h-5 w-5" />
-            </button>
-            <h1 className="text-base font-semibold">Requests</h1>
-            {list.length > 0 && (
-              <span className="text-sm text-muted-foreground">· {list.length}</span>
-            )}
-          </div>
-
-          {/* Tabs */}
           <div className="flex border-t border-border">
             <TabButton active={tab === "incoming"} onClick={() => setTab("incoming")}>
               Incoming {incoming.length > 0 && <span className="text-muted-foreground">({incoming.length})</span>}
@@ -322,7 +307,7 @@ function RequestsPage() {
           </div>
         )}
       </main>
-    </div>
+    </>
   );
 }
 

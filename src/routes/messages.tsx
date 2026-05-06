@@ -4,7 +4,7 @@ import { Loader2, Send, MessageCircle, ArrowLeft, Check, CheckCheck } from "luci
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
-import { SiteHeader } from "@/components/SiteHeader";
+import { MessagesHeader } from "@/components/headers/MessagesHeader";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
@@ -340,18 +340,21 @@ function MessagesPage() {
 
   if (authLoading || !user) {
     return (
-      <div className="min-h-screen bg-background">
-        <SiteHeader />
+      <>
+        <MessagesHeader title="Messages" />
         <div className="flex justify-center py-20">
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
         </div>
-      </div>
+      </>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <SiteHeader />
+    <>
+      <MessagesHeader 
+        title={activePartnerId && activePartner ? activePartner.display_name || "User" : "Messages"}
+        onBack={activePartnerId ? () => navigate({ to: "/messages" }) : undefined}
+      />
       <main className="container mx-auto max-w-5xl px-0 sm:px-4 py-0 sm:py-6">
         <div className="sm:paper-card sm:rounded-xl overflow-hidden grid grid-cols-1 md:grid-cols-[320px_1fr] h-[calc(100dvh-56px-64px)] sm:h-[calc(100dvh-120px-64px)] md:h-[calc(100dvh-120px)]">
           {/* Conversation list — hidden on mobile when a chat is open */}
@@ -589,6 +592,6 @@ function MessagesPage() {
           </section>
         </div>
       </main>
-    </div>
+    </>
   );
 }

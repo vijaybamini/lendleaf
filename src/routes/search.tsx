@@ -1,9 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useRef, useState, type FormEvent } from "react";
-import { ArrowLeft, Search } from "lucide-react";
-import { SiteHeader } from "@/components/SiteHeader";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { useState, useEffect, useCallback } from "react";
+import { SearchHeader } from "@/components/headers/SearchHeader";
+import { BookDiscoveryGrid } from "@/components/BookDiscoveryGrid";
+import { BookDetailModal, type BookDetail } from "@/components/BookDetailModal";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/search")({
   component: SearchPage,
@@ -13,83 +14,176 @@ export const Route = createFileRoute("/search")({
   head: () => ({ meta: [{ title: "Search — LendLeaf" }] }),
 });
 
+interface Book {
+  id: string;
+  title: string;
+  author: string | null;
+  cover_image: string | null;
+  owner_id?: string;
+  owner_name?: string | null;
+  genre?: string;
+}
+
 function SearchPage() {
   const navigate = Route.useNavigate();
   const search = Route.useSearch();
   const [q, setQ] = useState(search.q ?? "");
-  const inputRef = useRef<HTMLInputElement | null>(null);
+  const [books, setBooks] = useState<Book[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [selectedBook, setSelectedBook] = useState<BookDetail | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
-  useEffect(() => {
-    // Autofocus after route navigation
-    inputRef.current?.focus();
+  // Fetch books based on search query
+  const fetchBooks = useCallback(async (query: string) => {
+    setIsLoading(true);
+    try {
+      let result;
+      
+      if (query.trim()) {
+        // Search for specific books
+        const searchTerm = query.toLowerCase();
+        const { data: searchResults, error } = await supabase
+          .from("books")
+          .select("id, title, author, cover_image, owner_id")
+          .limit(30);
+
+        if (error) {
+          toast.error("Couldn't load books");
+          setBooks([]);
+        } else {
+          // Client-side filtering for better UX
+          const filtered = (searchResults ?? []).filter((book: Book) =>
+            book.title.toLowerCase().includes(searchTerm) ||
+            (book.author && book.author.toLowerCase().includes(searchTerm))
+          );
+          
+          // Fetch owner names for filtered books
+          const withOwnerNames = await enrichBooksWithOwnerNames(filtered);
+          setBooks(withOwnerNames);
+        }
+      } else {
+        // Show trending/popular books (latest books)
+        result = await supabase
+          .from("books")
+          .select("id, title, author, cover_image, owner_id")
+          .order("created_at", { ascending: false })
+          .limit(30);
+
+        if (result.error) {
+          toast.error("Couldn't load books");
+          setBooks([]);
+        } else {
+          // Fetch owner names for result books
+          const withOwnerNames = await enrichBooksWithOwnerNames(result.data ?? []);
+          setBooks(withOwnerNames);
+        }
+      }
+    } catch (err) {
+      console.error("Search error:", err);
+      setBooks([]);
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
+
+  // Helper function to enrich books with owner names
+  const enrichBooksWithOwnerNames = async (booksToEnrich: Book[]): Promise<Book[]> => {
+    const ownerIds = Array.from(new Set(booksToEnrich.map(b => b.owner_id).filter(Boolean)));
+    
+    if (ownerIds.length === 0) return booksToEnrich;
+    
+    const { data: profiles, error } = await supabase
+      .from("profiles")
+      .select("id, display_name")
+      .in("id", ownerIds as string[]);
+    
+    if (error || !profiles) return booksToEnrich;
+    
+    const profileMap = new Map(profiles.map(p => [p.id, p.display_name]));
+    
+    return booksToEnrich.map(book => ({
+      ...book,
+      owner_name: book.owner_id ? profileMap.get(book.owner_id) : null,
+    }));
+  };
+
+  // Fetch books when search query changes
+  useEffect(() => {
+    fetchBooks(search.q ?? "");
+  }, [search.q, fetchBooks]);
 
   const submit = (value: string) => {
     navigate({
-      to: "/browse",
+      to: "/search",
       search: () => ({ q: value.trim() || undefined }),
     });
   };
 
-  const onSubmit = (e: FormEvent) => {
-    e.preventDefault();
-    submit(q);
+  const handleBookClick = (book: Book) => {
+    // Convert Book to BookDetail
+    const bookDetail: BookDetail = {
+      id: book.id,
+      title: book.title,
+      author: book.author,
+      cover_image: book.cover_image,
+      owner_id: book.owner_id || "",
+      owner_name: book.owner_name,
+      genre: book.genre,
+    };
+    setSelectedBook(bookDetail);
+    setIsModalOpen(true);
   };
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <SiteHeader />
-
-      <main className="flex-1 container mx-auto px-3 sm:px-4 max-w-6xl py-4 sm:py-8">
-        <div className="mx-auto w-full max-w-2xl">
-          <div className="flex items-center gap-2 mb-4 sm:mb-6">
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              aria-label="Back"
-              title="Back"
-              onClick={() => navigate({ to: "/browse", search: {} })}
-              className="flex-shrink-0"
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-            <h1 className="font-serif text-xl sm:text-2xl font-semibold">Search</h1>
+    <>
+      <SearchHeader 
+        value={q} 
+        onChange={setQ}
+        onSubmit={submit}
+      />
+      <main className="mx-auto max-w-6xl px-3 py-4 sm:px-4 sm:py-6">
+        {/* Section header */}
+        {q && (
+          <div className="mb-4 sm:mb-6">
+            <h2 className="text-lg sm:text-xl font-semibold text-zinc-100">
+              Results for "{q}"
+            </h2>
+            <p className="text-sm text-zinc-400 mt-1">
+              Found {books.length} book{books.length !== 1 ? "s" : ""}
+            </p>
           </div>
+        )}
+        
+        {!q && (
+          <div className="mb-4 sm:mb-6">
+            <h2 className="text-lg sm:text-xl font-semibold text-zinc-100">
+              Trending Books
+            </h2>
+            <p className="text-sm text-zinc-400 mt-1">
+              Popular books in the Lend Leaf community
+            </p>
+          </div>
+        )}
 
-          <form onSubmit={onSubmit} role="search">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-              <Input
-                ref={inputRef}
-                type="search"
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-                placeholder="Search books by title, author, ISBN…"
-                className="pl-10 h-11 text-base sm:h-10 sm:text-sm"
-                aria-label="Search"
-                autoComplete="off"
-                enterKeyHint="search"
-              />
-            </div>
-            <div className="mt-3 flex gap-2">
-              <Button type="submit" className="flex-1">
-                Search
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  setQ("");
-                  submit("");
-                }}
-              >
-                Clear
-              </Button>
-            </div>
-          </form>
-        </div>
+        {/* Book Grid */}
+        <BookDiscoveryGrid 
+          books={books} 
+          isLoading={isLoading}
+          emptyMessage={q ? `No books match "${q}"` : "No books available"}
+          showBrowseLink={true}
+          onBookClick={handleBookClick}
+        />
       </main>
-    </div>
+
+      {/* Book Detail Modal */}
+      <BookDetailModal 
+        book={selectedBook} 
+        isOpen={isModalOpen}
+        onClose={() => {
+          setIsModalOpen(false);
+          setSelectedBook(null);
+        }}
+      />
+    </>
   );
 }

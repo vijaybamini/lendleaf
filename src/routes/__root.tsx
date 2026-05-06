@@ -4,13 +4,14 @@ import {
   HeadContent,
   Scripts,
   Link,
+  useLocation,
 } from "@tanstack/react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { AuthLoadingScreen } from "@/components/AuthLoadingScreen";
 import { AuthProvider, useAuth } from "@/lib/auth";
-import { MobileBottomNav } from "@/components/MobileBottomNav";
+import { MainLayout } from "@/components/MainLayout";
 import appCss from "../styles.css?url";
 
 interface RouterContext {
@@ -153,17 +154,25 @@ function RootShell({ children }: { children: React.ReactNode }) {
 }
 
 function AuthGuard() {
-  const { loading } = useAuth();
+  const { loading, user } = useAuth();
+  const location = useLocation();
 
   if (loading) {
     return <AuthLoadingScreen />;
   }
 
+  const isAuthRoute = location.pathname === "/login" || location.pathname === "/signup";
+
+  if (user && !isAuthRoute) {
+    return (
+      <MainLayout>
+        <Outlet />
+      </MainLayout>
+    );
+  }
+
   return (
-    <>
-      <Outlet />
-      <MobileBottomNav />
-    </>
+    <Outlet />
   );
 }
 

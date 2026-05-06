@@ -1,7 +1,8 @@
-import { createFileRoute, Link, Navigate } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { BookOpen, Users, Sprout, ArrowRight } from "lucide-react";
-import { SiteHeader } from "@/components/SiteHeader";
+import { HomeHeader } from "@/components/headers/HomeHeader";
 import { AuthLoadingScreen } from "@/components/AuthLoadingScreen";
+import { Feed } from "@/components/Feed";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
 
@@ -27,12 +28,29 @@ function Landing() {
   }
 
   if (user) {
-    return <Navigate to="/browse" />;
+    return (
+      <>
+        <HomeHeader />
+        <div className="w-full sm:px-4 sm:py-8">
+          <Feed />
+        </div>
+      </>
+    );
   }
 
+  // Landing page for unauthenticated users
   return (
     <div className="min-h-screen flex flex-col">
-      <SiteHeader />
+      <header className="border-b border-border/60 bg-background/80 backdrop-blur">
+        <div className="container mx-auto flex h-14 sm:h-16 items-center gap-2 sm:gap-3 px-3 sm:px-4 max-w-6xl">
+          <Link to="/" className="flex items-center gap-2 group flex-shrink-0">
+            <BookOpen className="h-6 w-6 text-primary transition-transform group-hover:-rotate-6" />
+            <span className="font-serif text-lg sm:text-xl font-semibold tracking-tight hidden sm:inline">
+              LendLeaf
+            </span>
+          </Link>
+        </div>
+      </header>
 
       <main className="flex-1">
         {/* Hero */}
@@ -52,24 +70,14 @@ function Landing() {
                   reading. A quiet little library, between people.
                 </p>
                 <div className="mt-8 flex flex-wrap gap-3">
-                  {user ? (
-                    <Button asChild size="lg">
-                      <Link to="/browse">
-                        Browse books <ArrowRight className="ml-1 h-4 w-4" />
-                      </Link>
-                    </Button>
-                  ) : (
-                    <>
-                      <Button asChild size="lg">
-                        <Link to="/signup">
-                          Start your shelf <ArrowRight className="ml-1 h-4 w-4" />
-                        </Link>
-                      </Button>
-                      <Button asChild size="lg" variant="outline">
-                        <Link to="/login">I have an account</Link>
-                      </Button>
-                    </>
-                  )}
+                  <Button asChild size="lg">
+                    <Link to="/signup">
+                      Start your shelf <ArrowRight className="ml-1 h-4 w-4" />
+                    </Link>
+                  </Button>
+                  <Button asChild size="lg" variant="outline">
+                    <Link to="/login">I have an account</Link>
+                  </Button>
                 </div>
               </div>
 

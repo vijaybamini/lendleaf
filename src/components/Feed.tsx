@@ -469,38 +469,11 @@ export function Feed() {
           <div className="border-b border-border bg-card p-3 sm:rounded-xl sm:border sm:p-4 sm:shadow-paper">
             {!composerExpanded && (
               <div className="flex items-center gap-3 sm:hidden">
-                <div className="h-9 w-9 rounded-full bg-primary/15 text-primary flex items-center justify-center font-semibold text-sm flex-shrink-0">
-                  {viewerInitial}
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setComposerOpen(true)}
-                  className="min-h-11 flex-1 rounded-full border border-border bg-background px-4 text-left text-sm text-muted-foreground"
-                >
-                  Share a book thought
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setComposerOpen(true);
-                    fileInputRef.current?.click();
-                  }}
-                  className="flex h-11 w-11 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-primary"
-                  title="Add image"
-                  aria-label="Add image"
-                >
-                  <ImagePlus className="h-5 w-5" />
-                </button>
+                
               </div>
             )}
 
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={(e) => handleImagePick(e.target.files?.[0] ?? null)}
-            />
+           
 
             <div className={composerExpanded ? "block" : "hidden sm:block"}>
               <div className="flex gap-3">
