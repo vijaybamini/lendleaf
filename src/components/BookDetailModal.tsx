@@ -1,10 +1,10 @@
-import { useState } from "react";
-import { X, User, BookOpen } from "lucide-react";
+import { useEffect, useState } from "react";
+import { X, User, BookOpen, Pencil, Trash2, Loader2, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
-import { Link } from "@tanstack/react-router";
 
 export interface BookDetail {
   id: string;
@@ -20,12 +20,52 @@ interface BookDetailModalProps {
   book: BookDetail | null;
   onClose: () => void;
   isOpen: boolean;
+  onEdit?: (
+    book: BookDetail,
+    updates: { title: string; author: string | null },
+  ) => Promise<boolean | void> | boolean | void;
+  onRemove?: (book: BookDetail) => Promise<boolean | void> | boolean | void;
 }
 
-export function BookDetailModal({ book, onClose, isOpen }: BookDetailModalProps) {
+export function BookDetailModal({ book, onClose, isOpen, onEdit, onRemove }: BookDetailModalProps) {
   const { user } = useAuth();
   const [isRequesting, setIsRequesting] = useState(false);
   const [requestSent, setRequestSent] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editTitle, setEditTitle] = useState("");
+  const [editAuthor, setEditAuthor] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+  const [isRemoving, setIsRemoving] = useState(false);
+
+  useEffect(() => {
+    if (!book || !isOpen) return;
+    let cancelled = false;
+
+    setEditTitle(book.title);
+    setEditAuthor(book.author ?? "");
+    setIsEditing(false);
+    setIsRequesting(false);
+    setRequestSent(false);
+    setIsSaving(false);
+    setIsRemoving(false);
+
+    if (!user || user.id === book.owner_id) return;
+
+    supabase
+      .from("transactions")
+      .select("id")
+      .eq("book_id", book.id)
+      .eq("borrower_id", user.id)
+      .eq("status", "pending")
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!cancelled) setRequestSent(Boolean(data));
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [book, isOpen, user]);
 
   if (!isOpen || !book) return null;
 
@@ -41,37 +81,97 @@ export function BookDetailModal({ book, onClose, isOpen }: BookDetailModalProps)
     }
 
     setIsRequesting(true);
+    setRequestSent(true);
 
     try {
-      // Create a new transaction request
-      const { error } = await supabase.from("transactions").insert({
-        book_id: book.id,
-        borrower_id: user.id,
-        lender_id: book.owner_id,
-        status: "pending",
-      });
+      const { error } = await supabase.rpc("request_borrow", { _book_id: book.id });
 
       if (error) {
+        setRequestSent(false);
+        if (error.message?.toLowerCase().includes("already have an open request")) {
+          setRequestSent(true);
+          toast.info("Request already sent");
+          setIsRequesting(false);
+          return;
+        }
         toast.error(error.message || "Couldn't send request");
         setIsRequesting(false);
         return;
       }
 
-      setRequestSent(true);
       toast.success(`Request sent to ${book.owner_name || "owner"}!`);
-
-      // Auto-close after 2 seconds
-      setTimeout(() => {
-        onClose();
-        setRequestSent(false);
-      }, 2000);
     } catch (err: any) {
+      setRequestSent(false);
       toast.error(err.message || "Couldn't send request");
+    } finally {
       setIsRequesting(false);
     }
   };
 
+  const handleCancelRequest = async () => {
+    setIsRequesting(true);
+    setRequestSent(false);
+
+    try {
+      const { error } = await supabase.rpc("cancel_borrow_request", {
+        _book_id: book.id,
+      });
+
+      if (error) {
+        setRequestSent(true);
+        toast.error(error.message || "Couldn't cancel request");
+        return;
+      }
+
+      toast.success("Request cancelled.");
+    } catch (err: any) {
+      setRequestSent(true);
+      toast.error(err.message || "Couldn't cancel request");
+    } finally {
+      setIsRequesting(false);
+    }
+  };
+
+  const handleRequestButtonClick = () => {
+    if (requestSent) {
+      handleCancelRequest();
+      return;
+    }
+    handleRequestToBorrow();
+  };
+
   const isMine = user?.id === book.owner_id;
+
+  const handleSaveEdit = async () => {
+    if (!book || !onEdit) return;
+    const title = editTitle.trim();
+    const author = editAuthor.trim();
+
+    if (!title) {
+      toast.error("Book title is required");
+      return;
+    }
+
+    setIsSaving(true);
+    const result = await onEdit(book, {
+      title: title.slice(0, 200),
+      author: author ? author.slice(0, 200) : null,
+    });
+    setIsSaving(false);
+
+    if (result === false) return;
+    setIsEditing(false);
+  };
+
+  const handleRemove = async () => {
+    if (!book || !onRemove) return;
+    setIsRemoving(true);
+    const result = await onRemove(book);
+    setIsRemoving(false);
+
+    if (result === false) return;
+    onClose();
+  };
 
   return (
     <>
@@ -122,17 +222,32 @@ export function BookDetailModal({ book, onClose, isOpen }: BookDetailModalProps)
 
           {/* Content Section - Compact */}
           <div className="p-4">
-            {/* Title and Author */}
-            <div className="mb-3 mt-2">
-              <h3 className="font-serif font-semibold text-white text-base line-clamp-2">
-                {book.title}
-              </h3>
-              {book.author && (
-                <p className="text-zinc-400 text-xs mt-1">
-                  {book.author}
-                </p>
-              )}
-            </div>
+            {isMine && isEditing ? (
+              <div className="mb-3 mt-2 space-y-2">
+                <Input
+                  value={editTitle}
+                  onChange={(event) => setEditTitle(event.target.value)}
+                  maxLength={200}
+                  className="h-9 border-zinc-700 bg-zinc-950 text-sm text-white"
+                  aria-label="Book title"
+                />
+                <Input
+                  value={editAuthor}
+                  onChange={(event) => setEditAuthor(event.target.value)}
+                  maxLength={200}
+                  placeholder="Author"
+                  className="h-9 border-zinc-700 bg-zinc-950 text-sm text-white"
+                  aria-label="Book author"
+                />
+              </div>
+            ) : (
+              <div className="mb-3 mt-2">
+                <h3 className="font-serif font-semibold text-white text-base line-clamp-2">
+                  {book.title}
+                </h3>
+                {book.author && <p className="text-zinc-400 text-xs mt-1">{book.author}</p>}
+              </div>
+            )}
 
             {/* Owner Info - Compact Row */}
             {!isMine && (
@@ -149,33 +264,89 @@ export function BookDetailModal({ book, onClose, isOpen }: BookDetailModalProps)
               </div>
             )}
 
-            {isMine && (
-              <div className="text-xs text-zinc-400 mb-4">
-                This is your book
-              </div>
+            {isMine && !isEditing && (
+              <div className="text-xs text-zinc-400 mb-4">This is your book</div>
             )}
 
             {/* Action Button */}
             {!isMine ? (
               <Button
-                onClick={handleRequestToBorrow}
-                disabled={isRequesting || requestSent}
+                onClick={handleRequestButtonClick}
+                disabled={isRequesting}
                 className={`w-full h-9 text-sm font-semibold transition-all duration-300 ${
                   requestSent
-                    ? "bg-emerald-600 hover:bg-emerald-600"
+                    ? "bg-zinc-700 hover:bg-zinc-600"
                     : "bg-emerald-600 hover:bg-emerald-700"
                 }`}
               >
-                {requestSent ? "✓ Request Sent!" : "Request to Borrow"}
+                {isRequesting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : requestSent ? (
+                  <>
+                    <Check className="mr-1.5 h-4 w-4" />
+                    Cancel Request
+                  </>
+                ) : (
+                  "Request to Borrow"
+                )}
               </Button>
             ) : (
-              <Button
-                disabled
-                variant="outline"
-                className="w-full h-9 text-sm border-zinc-700 text-zinc-400 bg-zinc-800/50"
-              >
-                Your Book
-              </Button>
+              <div className="grid grid-cols-2 gap-2">
+                {isEditing ? (
+                  <>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        setEditTitle(book.title);
+                        setEditAuthor(book.author ?? "");
+                        setIsEditing(false);
+                      }}
+                      disabled={isSaving}
+                      className="h-9 border-zinc-700 bg-zinc-800/50 text-sm text-zinc-200 hover:bg-zinc-800 hover:text-white"
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      type="button"
+                      onClick={handleSaveEdit}
+                      disabled={isSaving || !onEdit}
+                      className="h-9 bg-emerald-600 text-sm font-semibold hover:bg-emerald-700"
+                    >
+                      {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setIsEditing(true)}
+                      disabled={!onEdit || isRemoving}
+                      className="h-9 border-zinc-700 bg-zinc-800/50 text-sm text-zinc-200 hover:bg-zinc-800 hover:text-white"
+                    >
+                      <Pencil className="mr-1.5 h-3.5 w-3.5" />
+                      Edit
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handleRemove}
+                      disabled={!onRemove || isRemoving}
+                      className="h-9 border-red-900/70 bg-red-950/30 text-sm text-red-200 hover:bg-red-950/60 hover:text-red-100"
+                    >
+                      {isRemoving ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <>
+                          <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+                          Remove
+                        </>
+                      )}
+                    </Button>
+                  </>
+                )}
+              </div>
             )}
           </div>
         </div>

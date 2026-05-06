@@ -10,9 +10,9 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SignupRouteImport } from './routes/signup'
-import { Route as ShelfRouteImport } from './routes/shelf'
 import { Route as SearchRouteImport } from './routes/search'
 import { Route as RequestsRouteImport } from './routes/requests'
+import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as PostsRouteImport } from './routes/posts'
 import { Route as MessagesRouteImport } from './routes/messages'
 import { Route as LoginRouteImport } from './routes/login'
@@ -24,11 +24,6 @@ const SignupRoute = SignupRouteImport.update({
   path: '/signup',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ShelfRoute = ShelfRouteImport.update({
-  id: '/shelf',
-  path: '/shelf',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const SearchRoute = SearchRouteImport.update({
   id: '/search',
   path: '/search',
@@ -37,6 +32,11 @@ const SearchRoute = SearchRouteImport.update({
 const RequestsRoute = RequestsRouteImport.update({
   id: '/requests',
   path: '/requests',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProfileRoute = ProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PostsRoute = PostsRouteImport.update({
@@ -71,9 +71,9 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/messages': typeof MessagesRoute
   '/posts': typeof PostsRoute
+  '/profile': typeof ProfileRoute
   '/requests': typeof RequestsRoute
   '/search': typeof SearchRoute
-  '/shelf': typeof ShelfRoute
   '/signup': typeof SignupRoute
 }
 export interface FileRoutesByTo {
@@ -82,9 +82,9 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/messages': typeof MessagesRoute
   '/posts': typeof PostsRoute
+  '/profile': typeof ProfileRoute
   '/requests': typeof RequestsRoute
   '/search': typeof SearchRoute
-  '/shelf': typeof ShelfRoute
   '/signup': typeof SignupRoute
 }
 export interface FileRoutesById {
@@ -94,9 +94,9 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/messages': typeof MessagesRoute
   '/posts': typeof PostsRoute
+  '/profile': typeof ProfileRoute
   '/requests': typeof RequestsRoute
   '/search': typeof SearchRoute
-  '/shelf': typeof ShelfRoute
   '/signup': typeof SignupRoute
 }
 export interface FileRouteTypes {
@@ -107,9 +107,9 @@ export interface FileRouteTypes {
     | '/login'
     | '/messages'
     | '/posts'
+    | '/profile'
     | '/requests'
     | '/search'
-    | '/shelf'
     | '/signup'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -118,9 +118,9 @@ export interface FileRouteTypes {
     | '/login'
     | '/messages'
     | '/posts'
+    | '/profile'
     | '/requests'
     | '/search'
-    | '/shelf'
     | '/signup'
   id:
     | '__root__'
@@ -129,9 +129,9 @@ export interface FileRouteTypes {
     | '/login'
     | '/messages'
     | '/posts'
+    | '/profile'
     | '/requests'
     | '/search'
-    | '/shelf'
     | '/signup'
   fileRoutesById: FileRoutesById
 }
@@ -141,9 +141,9 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   MessagesRoute: typeof MessagesRoute
   PostsRoute: typeof PostsRoute
+  ProfileRoute: typeof ProfileRoute
   RequestsRoute: typeof RequestsRoute
   SearchRoute: typeof SearchRoute
-  ShelfRoute: typeof ShelfRoute
   SignupRoute: typeof SignupRoute
 }
 
@@ -154,13 +154,6 @@ declare module '@tanstack/react-router' {
       path: '/signup'
       fullPath: '/signup'
       preLoaderRoute: typeof SignupRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/shelf': {
-      id: '/shelf'
-      path: '/shelf'
-      fullPath: '/shelf'
-      preLoaderRoute: typeof ShelfRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/search': {
@@ -175,6 +168,13 @@ declare module '@tanstack/react-router' {
       path: '/requests'
       fullPath: '/requests'
       preLoaderRoute: typeof RequestsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/profile': {
+      id: '/profile'
+      path: '/profile'
+      fullPath: '/profile'
+      preLoaderRoute: typeof ProfileRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/posts': {
@@ -221,9 +221,9 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   MessagesRoute: MessagesRoute,
   PostsRoute: PostsRoute,
+  ProfileRoute: ProfileRoute,
   RequestsRoute: RequestsRoute,
   SearchRoute: SearchRoute,
-  ShelfRoute: ShelfRoute,
   SignupRoute: SignupRoute,
 }
 export const routeTree = rootRouteImport

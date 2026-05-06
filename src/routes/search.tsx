@@ -38,7 +38,7 @@ function SearchPage() {
     setIsLoading(true);
     try {
       let result;
-      
+
       if (query.trim()) {
         // Search for specific books
         const searchTerm = query.toLowerCase();
@@ -52,11 +52,12 @@ function SearchPage() {
           setBooks([]);
         } else {
           // Client-side filtering for better UX
-          const filtered = (searchResults ?? []).filter((book: Book) =>
-            book.title.toLowerCase().includes(searchTerm) ||
-            (book.author && book.author.toLowerCase().includes(searchTerm))
+          const filtered = (searchResults ?? []).filter(
+            (book: Book) =>
+              book.title.toLowerCase().includes(searchTerm) ||
+              (book.author && book.author.toLowerCase().includes(searchTerm)),
           );
-          
+
           // Fetch owner names for filtered books
           const withOwnerNames = await enrichBooksWithOwnerNames(filtered);
           setBooks(withOwnerNames);
@@ -88,20 +89,20 @@ function SearchPage() {
 
   // Helper function to enrich books with owner names
   const enrichBooksWithOwnerNames = async (booksToEnrich: Book[]): Promise<Book[]> => {
-    const ownerIds = Array.from(new Set(booksToEnrich.map(b => b.owner_id).filter(Boolean)));
-    
+    const ownerIds = Array.from(new Set(booksToEnrich.map((b) => b.owner_id).filter(Boolean)));
+
     if (ownerIds.length === 0) return booksToEnrich;
-    
+
     const { data: profiles, error } = await supabase
       .from("profiles")
       .select("id, display_name")
       .in("id", ownerIds as string[]);
-    
+
     if (error || !profiles) return booksToEnrich;
-    
-    const profileMap = new Map(profiles.map(p => [p.id, p.display_name]));
-    
-    return booksToEnrich.map(book => ({
+
+    const profileMap = new Map(profiles.map((p) => [p.id, p.display_name]));
+
+    return booksToEnrich.map((book) => ({
       ...book,
       owner_name: book.owner_id ? profileMap.get(book.owner_id) : null,
     }));
@@ -136,38 +137,28 @@ function SearchPage() {
 
   return (
     <>
-      <SearchHeader 
-        value={q} 
-        onChange={setQ}
-        onSubmit={submit}
-      />
+      <SearchHeader value={q} onChange={setQ} onSubmit={submit} />
       <main className="mx-auto max-w-6xl px-3 py-4 sm:px-4 sm:py-6">
         {/* Section header */}
         {q && (
-          <div className="mb-4 sm:mb-6">
-            <h2 className="text-lg sm:text-xl font-semibold text-zinc-100">
-              Results for "{q}"
-            </h2>
+          <div className="mb-4 px-0 sm:mb-6">
+            <h2 className="text-lg sm:text-xl font-semibold text-zinc-100">Results for "{q}"</h2>
             <p className="text-sm text-zinc-400 mt-1">
               Found {books.length} book{books.length !== 1 ? "s" : ""}
             </p>
           </div>
         )}
-        
+
         {!q && (
-          <div className="mb-4 sm:mb-6">
-            <h2 className="text-lg sm:text-xl font-semibold text-zinc-100">
-              Trending Books
-            </h2>
-            <p className="text-sm text-zinc-400 mt-1">
-              Popular books in the Lend Leaf community
-            </p>
+          <div className="mb-4 px-0 sm:mb-6">
+            <h2 className="text-lg sm:text-xl font-semibold text-zinc-100">Trending Books</h2>
+            <p className="text-sm text-zinc-400 mt-1">Popular books in the Lend Leaf community</p>
           </div>
         )}
 
         {/* Book Grid */}
-        <BookDiscoveryGrid 
-          books={books} 
+        <BookDiscoveryGrid
+          books={books}
           isLoading={isLoading}
           emptyMessage={q ? `No books match "${q}"` : "No books available"}
           showBrowseLink={true}
@@ -176,8 +167,8 @@ function SearchPage() {
       </main>
 
       {/* Book Detail Modal */}
-      <BookDetailModal 
-        book={selectedBook} 
+      <BookDetailModal
+        book={selectedBook}
         isOpen={isModalOpen}
         onClose={() => {
           setIsModalOpen(false);

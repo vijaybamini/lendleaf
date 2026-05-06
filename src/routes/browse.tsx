@@ -1,14 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  BookOpen,
-  Loader2,
-  Leaf,
-  Clock,
-  Check,
-  MapPin,
-  X,
-} from "lucide-react";
+import { BookOpen, Loader2, Leaf, Clock, Check, MapPin, X } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -17,7 +9,6 @@ import { useUserLocation, formatDistance } from "@/hooks/use-location";
 import { Button } from "@/components/ui/button";
 
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-
 
 export const Route = createFileRoute("/browse")({
   component: BrowsePage,
@@ -97,16 +88,10 @@ function BrowsePage() {
 function SignInPrompt() {
   return (
     <div className="paper-card rounded-lg py-16 px-6 text-center">
-      <BookOpen
-        className="h-12 w-12 text-muted-foreground/60 mx-auto mb-4"
-        strokeWidth={1.25}
-      />
-      <h2 className="font-serif text-2xl font-semibold mb-2">
-        Sign in to browse books
-      </h2>
+      <BookOpen className="h-12 w-12 text-muted-foreground/60 mx-auto mb-4" strokeWidth={1.25} />
+      <h2 className="font-serif text-2xl font-semibold mb-2">Sign in to browse books</h2>
       <p className="text-muted-foreground max-w-sm mx-auto mb-5">
-        The library is open to LendLeaf members. Join to start lending and
-        borrowing.
+        The library is open to LendLeaf members. Join to start lending and borrowing.
       </p>
       <div className="flex gap-2 justify-center">
         <Link to="/login">
@@ -136,13 +121,7 @@ function BooksList({
   const [requesting, setRequesting] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterKey>("available");
   const [distances, setDistances] = useState<Record<string, number>>({});
-  const {
-    location,
-    loading: locLoading,
-    error: locError,
-    detect,
-    clear,
-  } = useUserLocation();
+  const { location, loading: locLoading, error: locError, detect, clear } = useUserLocation();
 
   const fetchRequests = useCallback(async () => {
     const { data, error } = await supabase
@@ -296,7 +275,7 @@ function BooksList({
       {noCredits && (
         <div className="mb-5 paper-card rounded-md p-4 text-sm">
           You're out of Leaf Credits. Lend one of{" "}
-          <Link to="/shelf" className="underline font-medium">
+          <Link to="/profile" className="underline font-medium">
             your books
           </Link>{" "}
           to earn more.
@@ -334,11 +313,7 @@ function BooksList({
               Share your location to see books available nearby first.
             </span>
             <Button size="sm" variant="outline" onClick={handleDetect} disabled={locLoading}>
-              {locLoading ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                "Use my location"
-              )}
+              {locLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Use my location"}
             </Button>
           </>
         )}
@@ -441,7 +416,7 @@ function BooksList({
                   <p className="text-xs text-muted-foreground mt-2">
                     Shared by{" "}
                     <span className="font-medium text-foreground">
-                      {isMine ? "You" : owner?.display_name ?? "a member"}
+                      {isMine ? "You" : (owner?.display_name ?? "a member")}
                     </span>
                   </p>
                   {!isMine && (owner?.location_label || distances[book.id] != null) && (
@@ -476,11 +451,7 @@ function BooksList({
                         <Tooltip>
                           <TooltipTrigger asChild>
                             <span tabIndex={0} className="block w-full">
-                              <Button
-                                size="sm"
-                                disabled
-                                className="w-full pointer-events-none"
-                              >
+                              <Button size="sm" disabled className="w-full pointer-events-none">
                                 <Clock className="h-3.5 w-3.5 mr-1" /> Request
                               </Button>
                             </span>
@@ -499,8 +470,7 @@ function BooksList({
                       >
                         {isRequesting ? (
                           <>
-                            <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />{" "}
-                            Requesting…
+                            <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> Requesting…
                           </>
                         ) : (
                           <>

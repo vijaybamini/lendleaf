@@ -59,6 +59,14 @@ interface FeedPost extends PostRow {
   commentCount: number;
 }
 
+interface FeedProps {
+  authorId?: string;
+  showComposer?: boolean;
+  showTrending?: boolean;
+  emptyTitle?: string;
+  emptyDescription?: string;
+}
+
 function extractHashtags(text: string): string[] {
   const matches = text.match(/#[\w-]+/g) ?? [];
   const tags = matches.map((t) => t.slice(1).toLowerCase());
@@ -96,7 +104,13 @@ function renderContent(text: string, onTagClick: (tag: string) => void) {
   });
 }
 
-export function Feed() {
+export function Feed({
+  authorId,
+  showComposer = true,
+  showTrending = true,
+  emptyTitle = "No posts yet",
+  emptyDescription = "Be the first to share your thoughts with the community.",
+}: FeedProps = {}) {
   const { user } = useAuth();
   const [posts, setPosts] = useState<FeedPost[]>([]);
   const [loading, setLoading] = useState(true);
@@ -121,11 +135,17 @@ export function Feed() {
 
   const fetchPosts = useCallback(async () => {
     setLoading(true);
-    const { data: postData, error } = await supabase
+    let postsQuery = supabase
       .from("posts")
       .select("*")
       .order("created_at", { ascending: false })
       .limit(100);
+
+    if (authorId) {
+      postsQuery = postsQuery.eq("author_id", authorId);
+    }
+
+    const { data: postData, error } = await postsQuery;
 
     if (error) {
       console.log(error);
@@ -146,10 +166,7 @@ export function Feed() {
         ? supabase.from("profiles").select("id, display_name").in("id", authorIds)
         : Promise.resolve({ data: [] as ProfileLite[] }),
       bookIds.length
-        ? supabase
-            .from("books")
-            .select("id, title, author, cover_image")
-            .in("id", bookIds)
+        ? supabase.from("books").select("id, title, author, cover_image").in("id", bookIds)
         : Promise.resolve({ data: [] as BookLite[] }),
       supabase.from("post_likes").select("post_id, user_id"),
       supabase.from("post_comments").select("post_id"),
@@ -176,7 +193,7 @@ export function Feed() {
     const enriched: FeedPost[] = postRows.map((p) => ({
       ...p,
       author: authorMap[p.author_id] ?? null,
-      book: p.book_id ? bookMap[p.book_id] ?? null : null,
+      book: p.book_id ? (bookMap[p.book_id] ?? null) : null,
       likeCount: likeCount[p.id] ?? 0,
       likedByMe: likedSet.has(p.id),
       commentCount: commentCount[p.id] ?? 0,
@@ -184,7 +201,7 @@ export function Feed() {
 
     setPosts(enriched);
     setLoading(false);
-  }, [user]);
+  }, [authorId, user]);
 
   const fetchMyBooks = useCallback(async () => {
     if (!user) return;
@@ -204,15 +221,13 @@ export function Feed() {
   }, [fetchMyBooks]);
 
   const visiblePosts = useMemo(() => {
-    if (!activeTag) return posts;
+    if (!showTrending || !activeTag) return posts;
     return posts.filter((p) => p.hashtags.includes(activeTag));
-  }, [posts, activeTag]);
+  }, [activeTag, posts, showTrending]);
 
   const trendingTags = useMemo(() => {
     const counts: Record<string, number> = {};
-    posts.forEach((p) =>
-      p.hashtags.forEach((t) => (counts[t] = (counts[t] ?? 0) + 1)),
-    );
+    posts.forEach((p) => p.hashtags.forEach((t) => (counts[t] = (counts[t] ?? 0) + 1)));
     return Object.entries(counts)
       .sort((a, b) => b[1] - a[1])
       .slice(0, 8)
@@ -287,13 +302,11 @@ export function Feed() {
     if (imageFile) {
       const ext = imageFile.name.split(".").pop()?.toLowerCase() || "jpg";
       const path = `${user.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-      const { error: upErr } = await supabase.storage
-        .from("post-images")
-        .upload(path, imageFile, {
-          cacheControl: "3600",
-          upsert: false,
-          contentType: imageFile.type,
-        });
+      const { error: upErr } = await supabase.storage.from("post-images").upload(path, imageFile, {
+        cacheControl: "3600",
+        upsert: false,
+        contentType: imageFile.type,
+      });
       if (upErr) {
         setPosting(false);
         toast.error(upErr.message || "Couldn't upload image");
@@ -402,9 +415,7 @@ export function Feed() {
     }
     await loadComments(postId);
     setPosts((prev) =>
-      prev.map((p) =>
-        p.id === postId ? { ...p, commentCount: p.commentCount + 1 } : p,
-      ),
+      prev.map((p) => (p.id === postId ? { ...p, commentCount: p.commentCount + 1 } : p)),
     );
   };
 
@@ -419,22 +430,29 @@ export function Feed() {
   };
 
   const viewerName = user
-    ? ((user.user_metadata as { display_name?: string })?.display_name ??
-      user.email ??
-      "?")
+    ? ((user.user_metadata as { display_name?: string })?.display_name ?? user.email ?? "?")
     : "?";
   const viewerInitial = viewerName.slice(0, 1).toUpperCase();
-  const hasBookDraft = Boolean(
-    selectedShelfBookId || newBookTitle.trim() || newBookAuthor.trim(),
-  );
+  const hasBookDraft = Boolean(selectedShelfBookId || newBookTitle.trim() || newBookAuthor.trim());
   const composerHasDraft = Boolean(newContent.trim() || imageFile || hasBookDraft);
   const composerExpanded = composerOpen || composerHasDraft;
   const showBookTools = bookToolsOpen || hasBookDraft;
 
+  const noPostsTitle = activeTag ? `No posts tagged #${activeTag}` : emptyTitle;
+  const noPostsDescription =
+    showTrending && activeTag ? "Be the first to write about this topic." : emptyDescription;
+  const noPostsHeading = showTrending && activeTag ? noPostsTitle : emptyTitle;
+  const feedLayoutClass = showTrending
+    ? "grid grid-cols-1 gap-0 sm:gap-5 lg:grid-cols-[1fr_240px] lg:gap-6"
+    : "grid grid-cols-1 gap-0";
+  const handleTagClick = (tag: string) => {
+    if (showTrending) setActiveTag(tag);
+  };
+
   return (
-    <div className="grid grid-cols-1 gap-0 sm:gap-5 lg:grid-cols-[1fr_240px] lg:gap-6">
+    <div className={feedLayoutClass}>
       <div className="space-y-0 sm:space-y-5">
-        {trendingTags.length > 0 && (
+        {showTrending && trendingTags.length > 0 && (
           <div className="border-b border-border/70 bg-background px-3 py-2 lg:hidden">
             <div className="flex gap-2 overflow-x-auto">
               <button
@@ -465,15 +483,9 @@ export function Feed() {
         )}
 
         {/* Composer */}
-        {user ? (
+        {showComposer && user ? (
           <div className="border-b border-border bg-card p-3 sm:rounded-xl sm:border sm:p-4 sm:shadow-paper">
-            {!composerExpanded && (
-              <div className="flex items-center gap-3 sm:hidden">
-                
-              </div>
-            )}
-
-           
+            {!composerExpanded && <div className="flex items-center gap-3 sm:hidden"></div>}
 
             <div className={composerExpanded ? "block" : "hidden sm:block"}>
               <div className="flex gap-3">
@@ -638,7 +650,7 @@ export function Feed() {
               </div>
             </div>
           </div>
-        ) : (
+        ) : showComposer ? (
           <div className="border-b border-border bg-card p-4 text-sm text-muted-foreground flex items-center justify-between flex-wrap gap-3 sm:rounded-xl sm:border sm:shadow-paper">
             <span>Join the conversation — sign in to share your thoughts.</span>
             <div className="flex gap-2">
@@ -652,9 +664,9 @@ export function Feed() {
               </Link>
             </div>
           </div>
-        )}
+        ) : null}
 
-        {activeTag && (
+        {showTrending && activeTag && (
           <div className="hidden sm:flex items-center gap-2 text-sm">
             <span className="text-muted-foreground">Filtering by</span>
             <span className="font-medium text-primary">#{activeTag}</span>
@@ -677,14 +689,8 @@ export function Feed() {
               className="h-12 w-12 text-muted-foreground/60 mx-auto mb-4"
               strokeWidth={1.25}
             />
-            <h2 className="font-serif text-2xl font-semibold mb-2">
-              {activeTag ? `No posts tagged #${activeTag}` : "No posts yet"}
-            </h2>
-            <p className="text-muted-foreground max-w-sm mx-auto">
-              {activeTag
-                ? "Be the first to write about this topic."
-                : "Be the first to share your thoughts with the community."}
-            </p>
+            <h2 className="font-serif text-2xl font-semibold mb-2">{noPostsHeading}</h2>
+            <p className="text-muted-foreground max-w-sm mx-auto">{noPostsDescription}</p>
           </div>
         ) : (
           <ul className="space-y-0 sm:space-y-5">
@@ -738,7 +744,7 @@ export function Feed() {
 
                       {post.content && (
                         <p className="mt-1.5 whitespace-pre-wrap break-words text-[15px] leading-relaxed sm:text-base">
-                          {renderContent(post.content, (t) => setActiveTag(t))}
+                          {renderContent(post.content, handleTagClick)}
                         </p>
                       )}
 
@@ -788,29 +794,28 @@ export function Feed() {
 
                       {post.hashtags.length > 0 && (
                         <div className="mt-3 flex gap-1.5 overflow-x-auto sm:flex-wrap">
-                          {post.hashtags.slice(0, 6).map((t) => (
-                            <button
-                              key={t}
-                              onClick={() => setActiveTag(t === activeTag ? null : t)}
-                              className="whitespace-nowrap rounded-full bg-muted px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary"
-                            >
-                              #{t}
-                            </button>
-                          ))}
+                          {post.hashtags.slice(0, 6).map((t) =>
+                            showTrending ? (
+                              <button
+                                key={t}
+                                onClick={() => setActiveTag(t === activeTag ? null : t)}
+                                className="whitespace-nowrap rounded-full bg-muted px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary"
+                              >
+                                #{t}
+                              </button>
+                            ) : (
+                              <span
+                                key={t}
+                                className="whitespace-nowrap rounded-full bg-muted px-2 py-1 text-xs text-muted-foreground"
+                              >
+                                #{t}
+                              </span>
+                            ),
+                          )}
                         </div>
                       )}
 
                       <div className="mt-3 flex max-w-xs items-center justify-between text-muted-foreground">
-                        <button
-                          onClick={() => toggleComments(post.id)}
-                          className="flex min-h-9 items-center gap-2 rounded-full px-2 transition-colors hover:bg-muted hover:text-primary"
-                          aria-label="Comments"
-                        >
-                          <MessageCircle className="h-5 w-5" />
-                          <span className="text-sm font-medium tabular-nums">
-                            {post.commentCount}
-                          </span>
-                        </button>
                         <button
                           onClick={() => handleLike(post)}
                           className={`flex min-h-9 items-center gap-2 rounded-full px-2 transition-colors hover:bg-muted ${
@@ -823,8 +828,16 @@ export function Feed() {
                               post.likedByMe ? "fill-current scale-110" : ""
                             }`}
                           />
+                          <span className="text-sm font-medium tabular-nums">{post.likeCount}</span>
+                        </button>
+                        <button
+                          onClick={() => toggleComments(post.id)}
+                          className="flex min-h-9 items-center gap-2 rounded-full px-2 transition-colors hover:bg-muted hover:text-primary"
+                          aria-label="Comments"
+                        >
+                          <MessageCircle className="h-5 w-5" />
                           <span className="text-sm font-medium tabular-nums">
-                            {post.likeCount}
+                            {post.commentCount}
                           </span>
                         </button>
                         {user && !isMine ? (
@@ -860,16 +873,15 @@ export function Feed() {
                                   {commentsState.items.map((c) => (
                                     <li key={c.id} className="flex gap-2 text-sm">
                                       <div className="h-7 w-7 rounded-full bg-primary/15 text-primary text-xs flex items-center justify-center font-semibold flex-shrink-0">
-                                        {(commentsState.authors[c.author_id]
-                                          ?.display_name ?? "?")
+                                        {(commentsState.authors[c.author_id]?.display_name ?? "?")
                                           .slice(0, 1)
                                           .toUpperCase()}
                                       </div>
                                       <div className="flex-1 min-w-0 rounded-2xl bg-background px-3 py-2">
                                         <div className="flex items-baseline gap-2">
                                           <span className="text-sm font-semibold">
-                                            {commentsState.authors[c.author_id]
-                                              ?.display_name ?? "Member"}
+                                            {commentsState.authors[c.author_id]?.display_name ??
+                                              "Member"}
                                           </span>
                                           <span className="text-xs text-muted-foreground">
                                             {timeAgo(c.created_at)}
@@ -884,9 +896,7 @@ export function Feed() {
                                 </ul>
                               )}
                               {user ? (
-                                <CommentBox
-                                  onSubmit={(text) => handleAddComment(post.id, text)}
-                                />
+                                <CommentBox onSubmit={(text) => handleAddComment(post.id, text)} />
                               ) : (
                                 <p className="text-xs text-muted-foreground">
                                   <Link to="/login" className="underline">
@@ -909,35 +919,37 @@ export function Feed() {
       </div>
 
       {/* Sidebar */}
-      <aside className="hidden space-y-4 lg:sticky lg:top-24 lg:block self-start">
-        <div className="paper-card rounded-xl p-4">
-          <h3 className="font-serif font-semibold flex items-center gap-1.5 mb-3">
-            <Hash className="h-4 w-4" /> Trending topics
-          </h3>
-          {trendingTags.length === 0 ? (
-            <p className="text-xs text-muted-foreground">
-              No topics yet — add #tags to your post to start one.
-            </p>
-          ) : (
-            <ul className="flex flex-wrap gap-1.5">
-              {trendingTags.map((t) => (
-                <li key={t}>
-                  <button
-                    onClick={() => setActiveTag(t === activeTag ? null : t)}
-                    className={`text-xs px-2 py-1 rounded-full border transition-colors ${
-                      t === activeTag
-                        ? "bg-primary text-primary-foreground border-primary"
-                        : "hover:bg-muted"
-                    }`}
-                  >
-                    #{t}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      </aside>
+      {showTrending && (
+        <aside className="hidden space-y-4 lg:sticky lg:top-24 lg:block self-start">
+          <div className="paper-card rounded-xl p-4">
+            <h3 className="font-serif font-semibold flex items-center gap-1.5 mb-3">
+              <Hash className="h-4 w-4" /> Trending topics
+            </h3>
+            {trendingTags.length === 0 ? (
+              <p className="text-xs text-muted-foreground">
+                No topics yet — add #tags to your post to start one.
+              </p>
+            ) : (
+              <ul className="flex flex-wrap gap-1.5">
+                {trendingTags.map((t) => (
+                  <li key={t}>
+                    <button
+                      onClick={() => setActiveTag(t === activeTag ? null : t)}
+                      className={`text-xs px-2 py-1 rounded-full border transition-colors ${
+                        t === activeTag
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "hover:bg-muted"
+                      }`}
+                    >
+                      #{t}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </aside>
+      )}
     </div>
   );
 }

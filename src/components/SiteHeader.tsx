@@ -17,13 +17,7 @@ import { useAuth } from "@/lib/auth";
 import { useCredits } from "@/hooks/use-credits";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -170,7 +164,7 @@ export function SiteHeader() {
                       <span className="font-medium">Browse</span>
                     </Link>
                     <Link
-                      to="/shelf"
+                      to="/profile"
                       className="flex items-center gap-3 rounded-md px-3 py-2 hover:bg-accent"
                     >
                       <Library className="h-5 w-5 text-muted-foreground" />
@@ -255,7 +249,7 @@ export function SiteHeader() {
                   <Search className="h-5 w-5" />
                 </Button>
                 <Button asChild variant="ghost" size="icon" title="My Shelf" aria-label="My Shelf">
-                  <Link to="/shelf">
+                  <Link to="/profile">
                     <Library className="h-5 w-5" />
                   </Link>
                 </Button>
@@ -264,7 +258,13 @@ export function SiteHeader() {
                     <Inbox className="h-5 w-5" />
                   </Link>
                 </Button>
-                <Button asChild variant="ghost" size="icon" title="Posts" aria-label="Posts & Write">
+                <Button
+                  asChild
+                  variant="ghost"
+                  size="icon"
+                  title="Posts"
+                  aria-label="Posts & Write"
+                >
                   <Link to="/posts">
                     <PenSquare className="h-5 w-5" />
                   </Link>
