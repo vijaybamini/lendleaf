@@ -7,7 +7,6 @@ import {
   useLocation,
 } from "@tanstack/react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { AuthLoadingScreen } from "@/components/AuthLoadingScreen";
 import { AuthProvider, useAuth } from "@/lib/auth";
@@ -92,57 +91,9 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 });
 
 function RootShell({ children }: { children: React.ReactNode }) {
-  const [isDark, setIsDark] = useState<boolean>(() => {
-    if (typeof window === "undefined") return false;
-    const htmlElement = document.documentElement;
-    return (
-      htmlElement.classList.contains("dark") ||
-      htmlElement.getAttribute("data-theme") === "dark" ||
-      window.matchMedia("(prefers-color-scheme: dark)").matches
-    );
-  });
-
-  useEffect(() => {
-    const htmlElement = document.documentElement;
-    const applyTheme = (dark: boolean) => {
-      if (dark) {
-        htmlElement.setAttribute("data-theme", "dark");
-        htmlElement.classList.add("dark");
-      } else {
-        htmlElement.removeAttribute("data-theme");
-        htmlElement.classList.remove("dark");
-      }
-    };
-
-    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-    setIsDark(prefersDark);
-    applyTheme(prefersDark);
-
-    // Listen for system theme changes
-    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
-    const handleChange = (e: MediaQueryListEvent) => {
-      setIsDark(e.matches);
-      applyTheme(e.matches);
-    };
-
-    mediaQuery.addEventListener("change", handleChange);
-    return () => mediaQuery.removeEventListener("change", handleChange);
-  }, []);
-
   return (
-    <html
-      suppressHydrationWarning
-      lang="en"
-      data-theme={isDark ? "dark" : undefined}
-      className={isDark ? "dark" : undefined}
-    >
+    <html lang="en">
       <head>
-        <script
-          dangerouslySetInnerHTML={{
-            __html:
-              "(function(){try{var d=window.matchMedia('(prefers-color-scheme: dark)').matches;var e=document.documentElement;if(d){e.setAttribute('data-theme','dark');e.classList.add('dark')}else{e.removeAttribute('data-theme');e.classList.remove('dark')}}catch(e){}})();",
-          }}
-        />
         <HeadContent />
       </head>
       <body>
@@ -171,9 +122,7 @@ function AuthGuard() {
     );
   }
 
-  return (
-    <Outlet />
-  );
+  return <Outlet />;
 }
 
 function RootComponent() {

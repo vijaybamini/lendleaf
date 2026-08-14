@@ -1,17 +1,5 @@
-/**
- * Theme Utilities
- * Helper functions for theme-related operations
- */
-
-/**
- * Get the current system theme preference
- * @returns 'light' or 'dark' based on system preference
- */
-export function getSystemTheme(): "light" | "dark" {
-  if (typeof window === "undefined") return "light";
-
-  const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-  return prefersDark ? "dark" : "light";
+export function getSystemTheme(): "light" {
+  return "light";
 }
 
 /**
@@ -49,49 +37,13 @@ export function setCSSVariable(variableName: string, value: string): void {
   document.documentElement.style.setProperty(name, value);
 }
 
-/**
- * Watch for changes to system theme preference
- * @param callback - Function called when theme preference changes
- * @returns Cleanup function to stop watching
- *
- * @example
- * ```tsx
- * const unwatch = watchSystemTheme((theme) => {
- *   console.log('Theme changed to:', theme)
- * })
- *
- * // Later...
- * unwatch()
- * ```
- */
-export function watchSystemTheme(callback: (theme: "light" | "dark") => void): () => void {
-  if (typeof window === "undefined") return () => {};
-
-  const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
-
-  const handleChange = (e: MediaQueryListEvent) => {
-    callback(e.matches ? "dark" : "light");
-  };
-
-  mediaQuery.addEventListener("change", handleChange);
-
-  return () => {
-    mediaQuery.removeEventListener("change", handleChange);
-  };
+export function watchSystemTheme(callback: (theme: "light") => void): () => void {
+  callback("light");
+  return () => {};
 }
 
-/**
- * Check if dark mode is currently active
- * @returns true if dark mode is active, false otherwise
- */
 export function isDarkMode(): boolean {
-  if (typeof window === "undefined") return false;
-
-  const htmlElement = document.documentElement;
-  return (
-    (htmlElement.hasAttribute("data-theme") && htmlElement.getAttribute("data-theme") === "dark") ||
-    htmlElement.classList.contains("dark")
-  );
+  return false;
 }
 
 /**

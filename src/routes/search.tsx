@@ -142,8 +142,8 @@ function SearchPage() {
         {/* Section header */}
         {q && (
           <div className="mb-4 px-0 sm:mb-6">
-            <h2 className="text-lg sm:text-xl font-semibold text-zinc-100">Results for "{q}"</h2>
-            <p className="text-sm text-zinc-400 mt-1">
+            <h2 className="text-lg sm:text-xl font-semibold text-foreground">Results for "{q}"</h2>
+            <p className="text-sm text-muted-foreground mt-1">
               Found {books.length} book{books.length !== 1 ? "s" : ""}
             </p>
           </div>
@@ -151,8 +151,10 @@ function SearchPage() {
 
         {!q && (
           <div className="mb-4 px-0 sm:mb-6">
-            <h2 className="text-lg sm:text-xl font-semibold text-zinc-100">Trending Books</h2>
-            <p className="text-sm text-zinc-400 mt-1">Popular books in the Lend Leaf community</p>
+            <h2 className="text-lg sm:text-xl font-semibold text-foreground">Trending Books</h2>
+            <p className="text-sm text-muted-foreground mt-1">
+              Popular books in the Lend Leaf community
+            </p>
           </div>
         )}
 

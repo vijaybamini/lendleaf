@@ -94,9 +94,7 @@ export function ComposePost({
         }
 
         // Get public URL
-        const { data: urlData } = supabase.storage
-          .from("post-images")
-          .getPublicUrl(fileName);
+        const { data: urlData } = supabase.storage.from("post-images").getPublicUrl(fileName);
         imageUrl = urlData.publicUrl;
       }
 
@@ -137,12 +135,12 @@ export function ComposePost({
   const canPost = content.trim().length > 0 && !isOver && !isPosting;
 
   return (
-    <div className="fixed inset-0 z-[9999] bg-black flex flex-col">
+    <div className="fixed inset-0 z-[9999] bg-background text-foreground flex flex-col">
       {/* Header */}
-      <div className="border-b border-white/10 px-4 py-3 flex items-center justify-between sticky top-0 z-10 bg-black/95 backdrop-blur-sm">
+      <div className="border-b border-border px-4 py-3 flex items-center justify-between sticky top-0 z-10 bg-background/95 backdrop-blur-sm">
         <button
           onClick={onClose}
-          className="p-2 hover:bg-white/10 rounded-full transition-colors text-white"
+          className="p-2 hover:bg-accent rounded-full transition-colors text-foreground"
           aria-label="Close"
         >
           <X className="h-5 w-5" />
@@ -151,7 +149,7 @@ export function ComposePost({
         <Button
           onClick={handlePost}
           disabled={!canPost}
-          className="rounded-full bg-primary hover:bg-primary/90 px-4 py-1 text-sm font-semibold text-black disabled:opacity-50 disabled:cursor-not-allowed"
+          className="rounded-full bg-primary hover:bg-primary/90 px-4 py-1 text-sm font-semibold text-primary-foreground disabled:opacity-50 disabled:cursor-not-allowed"
         >
           Post
         </Button>
@@ -173,8 +171,8 @@ export function ComposePost({
             )}
           </div>
           <div>
-            <p className="text-white font-bold text-sm">{displayName || "User"}</p>
-            <p className="text-zinc-500 text-xs">@{userHandle || "user"}</p>
+            <p className="text-foreground font-bold text-sm">{displayName || "User"}</p>
+            <p className="text-muted-foreground text-xs">@{userHandle || "user"}</p>
           </div>
         </div>
 
@@ -185,7 +183,7 @@ export function ComposePost({
             value={content}
             onChange={(e) => setContent(e.target.value)}
             placeholder="What do you want to tell everyone?"
-            className="border-0 bg-transparent text-lg text-white placeholder:text-zinc-600 resize-none focus:outline-none focus:ring-0 focus:border-0 font-serif"
+            className="border-0 bg-transparent text-lg text-foreground placeholder:text-muted-foreground resize-none focus:outline-none focus:ring-0 focus:border-0 font-serif"
           />
         </div>
 
@@ -210,7 +208,7 @@ export function ComposePost({
       </div>
 
       {/* Toolbar */}
-      <div className="border-t border-white/10 px-4 py-4 flex items-center justify-between bg-black/95 backdrop-blur-sm sticky bottom-0 z-20">
+      <div className="border-t border-border px-4 py-4 flex items-center justify-between bg-background/95 backdrop-blur-sm sticky bottom-0 z-20">
         <div className="flex gap-3">
           <button
             onClick={() => fileInputRef.current?.click()}
@@ -232,7 +230,7 @@ export function ComposePost({
           />
 
           <button
-            className="p-2 hover:bg-white/10 rounded-full transition-colors text-zinc-500 cursor-not-allowed opacity-50"
+            className="p-2 hover:bg-accent rounded-full transition-colors text-muted-foreground cursor-not-allowed opacity-50"
             aria-label="Add poll"
             disabled
           >
@@ -240,7 +238,7 @@ export function ComposePost({
           </button>
 
           <button
-            className="p-2 hover:bg-white/10 rounded-full transition-colors text-zinc-500 cursor-not-allowed opacity-50"
+            className="p-2 hover:bg-accent rounded-full transition-colors text-muted-foreground cursor-not-allowed opacity-50"
             aria-label="Add location"
             disabled
           >
@@ -248,7 +246,7 @@ export function ComposePost({
           </button>
 
           <button
-            className="p-2 hover:bg-white/10 rounded-full transition-colors text-zinc-500 cursor-not-allowed opacity-50"
+            className="p-2 hover:bg-accent rounded-full transition-colors text-muted-foreground cursor-not-allowed opacity-50"
             aria-label="Add GIF"
             disabled
           >
@@ -267,7 +265,7 @@ export function ComposePost({
                 fill="none"
                 stroke="currentColor"
                 strokeWidth="2"
-                className="text-zinc-700"
+                className="text-border"
               />
               <circle
                 cx="12"
@@ -283,11 +281,13 @@ export function ComposePost({
                 }`}
               />
             </svg>
-            <span className="absolute inset-0 flex items-center justify-center text-[10px] font-semibold text-white">
+            <span className="absolute inset-0 flex items-center justify-center text-[10px] font-semibold text-foreground">
               {characterCount > 0 && characterCount}
             </span>
           </div>
-          <span className={`text-xs font-medium ${isOver ? "text-red-500" : "text-zinc-400"}`}>
+          <span
+            className={`text-xs font-medium ${isOver ? "text-red-500" : "text-muted-foreground"}`}
+          >
             {characterCount}/{MAX_CHARACTERS}
           </span>
         </div>

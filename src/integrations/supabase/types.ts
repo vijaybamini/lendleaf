@@ -267,7 +267,10 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
-      cancel_borrow_request: { Args: { _book_id: string }; Returns: string };
+      cancel_borrow_request: {
+        Args: { _transaction_id: string };
+        Returns: undefined;
+      };
       confirm_handover: {
         Args: { _transaction_id: string };
         Returns: undefined;

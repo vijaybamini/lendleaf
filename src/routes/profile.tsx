@@ -205,22 +205,22 @@ function ProfilePage() {
   return (
     <>
       <div className="px-3 py-5 sm:px-4 sm:py-8">
-        <section className="overflow-hidden border-b border-white/10 pb-5 sm:rounded-xl sm:border sm:bg-card sm:pb-0 sm:shadow-paper">
+        <section className="overflow-hidden border-b border-border pb-5 sm:rounded-xl sm:border sm:bg-card sm:pb-0 sm:shadow-paper">
           <div className="relative">
-            <div className="relative aspect-[3/1] overflow-hidden bg-zinc-900">
+            <div className="relative aspect-[3/1] overflow-hidden bg-muted">
               <img
                 src={profileBannerUrl}
                 alt=""
                 className="h-full w-full object-cover opacity-75"
                 loading="lazy"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-[#070a0f] via-[#070a0f]/20 to-transparent" />
+              <div className="absolute inset-0 bg-gradient-to-t from-card via-card/20 to-transparent" />
             </div>
 
             <Button
               type="button"
               size="icon"
-              className="fixed right-3 top-[calc(1rem+env(safe-area-inset-top))] z-50 h-11 w-11 rounded-full bg-emerald-500 text-white shadow-lg hover:bg-emerald-600 sm:right-4 sm:top-6 xl:right-[calc((100vw-72rem)/2+1rem)]"
+              className="fixed right-3 top-[calc(1rem+env(safe-area-inset-top))] z-50 h-11 w-11 rounded-full bg-primary text-primary-foreground shadow-lg hover:bg-primary/90 sm:right-4 sm:top-6 xl:right-[calc((100vw-72rem)/2+1rem)]"
               onClick={handleAddToShelf}
               aria-label="Add book to shelf"
               title="Add book to shelf"
@@ -228,7 +228,7 @@ function ProfilePage() {
               <Plus className="h-5 w-5" />
             </Button>
 
-            <Avatar className="absolute -bottom-11 left-4 h-24 w-24 border-4 border-[#070a0f] bg-[#070a0f] shadow-xl sm:-bottom-14 sm:left-6 sm:h-28 sm:w-28">
+            <Avatar className="absolute -bottom-11 left-4 h-24 w-24 border-4 border-card bg-card shadow-xl sm:-bottom-14 sm:left-6 sm:h-28 sm:w-28">
               {avatarUrl && <AvatarImage src={avatarUrl} alt={displayName} />}
               <AvatarFallback className="bg-primary/15 text-2xl font-semibold text-primary sm:text-3xl">
                 {initialsOf(displayName)}
@@ -238,10 +238,10 @@ function ProfilePage() {
 
           <div className="px-4 pt-14 sm:px-6 sm:pb-6 sm:pt-16">
             <div className="min-w-0 text-left">
-              <h1 className="font-serif text-3xl font-semibold leading-tight text-white sm:text-4xl">
+              <h1 className="font-serif text-3xl font-semibold leading-tight text-foreground sm:text-4xl">
                 {displayName}
               </h1>
-              <p className="mt-1 text-sm text-zinc-400">@{handle}</p>
+              <p className="mt-1 text-sm text-muted-foreground">@{handle}</p>
             </div>
 
             <div className="mt-5 text-left">
@@ -249,7 +249,7 @@ function ProfilePage() {
             </div>
 
             <div className="mt-4 min-w-0 text-left">
-              <p className="max-w-xl text-sm leading-6 text-zinc-300">{bio}</p>
+              <p className="max-w-xl text-sm leading-6 text-muted-foreground">{bio}</p>
             </div>
           </div>
         </section>
@@ -287,8 +287,8 @@ function ProfilePage() {
 function ProfileStat({ label, value }: { label: string; value: number }) {
   return (
     <div>
-      <div className="text-lg font-semibold tabular-nums text-white">{value}</div>
-      <div className="mt-0.5 text-xs text-zinc-500">{label}</div>
+      <div className="text-lg font-semibold tabular-nums text-foreground">{value}</div>
+      <div className="mt-0.5 text-xs text-muted-foreground">{label}</div>
     </div>
   );
 }

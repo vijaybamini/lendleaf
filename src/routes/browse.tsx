@@ -55,15 +55,15 @@ function BrowsePage() {
     <div className="px-3 py-5 sm:px-4 sm:py-8">
       <div className="mb-5 flex flex-wrap items-end justify-between gap-3 sm:mb-6">
         <div className="min-w-0">
-          <h1 className="font-serif text-3xl font-semibold text-white sm:text-4xl md:text-5xl">
+          <h1 className="font-serif text-3xl font-semibold text-foreground sm:text-4xl md:text-5xl">
             Browse
           </h1>
-          <p className="mt-1 text-sm text-zinc-400 sm:text-base">
+          <p className="mt-1 text-sm text-muted-foreground sm:text-base">
             {query ? `Results for "${query}"` : "The full Lend Leaf library"}
           </p>
         </div>
         {user && (
-          <div className="flex items-center gap-2 rounded-full bg-emerald-400/10 px-3 py-1.5 text-xs font-medium text-emerald-300 sm:text-sm">
+          <div className="flex items-center gap-2 rounded-full bg-secondary px-3 py-1.5 text-xs font-medium text-secondary-foreground sm:text-sm">
             <Leaf className="h-4 w-4" />
             <span>
               {credits ?? 0} Leaf Credit{credits === 1 ? "" : "s"}

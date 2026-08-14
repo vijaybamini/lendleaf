@@ -1,11 +1,5 @@
 import { Link, useLocation } from "@tanstack/react-router";
-import {
-  CircleUserRound,
-  Home,
-  MessageCircle,
-  Search,
-  type LucideIcon,
-} from "lucide-react";
+import { CircleUserRound, Home, MessageCircle, Search, type LucideIcon } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 
 type BottomNavPath = "/" | "/search" | "/messages" | "/profile";
@@ -28,12 +22,12 @@ function NavItem({
       className={[
         "relative flex min-w-0 flex-1 flex-col items-center justify-center gap-1 py-2",
         "text-[11px] font-medium transition-colors",
-        isActive ? "text-emerald-300" : "text-zinc-400 hover:text-zinc-100",
+        isActive ? "text-primary" : "text-muted-foreground hover:text-foreground",
       ].join(" ")}
       aria-label={label}
     >
       {isActive && (
-        <span className="absolute top-1 h-1 w-1 rounded-full bg-emerald-300" aria-hidden="true" />
+        <span className="absolute top-1 h-1 w-1 rounded-full bg-primary" aria-hidden="true" />
       )}
       <Icon className="h-6 w-6" strokeWidth={isActive ? 2.4 : 2} />
       <span className="max-w-full truncate leading-none">{label}</span>
@@ -55,7 +49,7 @@ export function MobileBottomNav() {
     <nav
       className={[
         "fixed bottom-0 left-0 right-0 z-50",
-        "border-t border-white/10 bg-[#070a0f]/95 backdrop-blur-xl",
+        "border-t border-border/80 bg-card/95 backdrop-blur-xl",
         "pb-[env(safe-area-inset-bottom)]",
       ].join(" ")}
       role="navigation"
