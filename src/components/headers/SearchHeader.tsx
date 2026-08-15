@@ -197,10 +197,6 @@ export function SearchHeader({
                   </p>
                   {locationLabel ? (
                     <div className="flex items-center gap-2 text-sm">
-                      <MapPin className="h-4 w-4 flex-shrink-0 text-primary" />
-                      <span className="min-w-0 flex-1 truncate text-muted-foreground">
-                        {locationLabel}
-                      </span>
                       <Button
                         type="button"
                         variant="ghost"
@@ -211,6 +207,11 @@ export function SearchHeader({
                       >
                         <X className="h-4 w-4" />
                       </Button>
+                      <MapPin className="h-4 w-4 flex-shrink-0 text-primary" />
+                      <span className="min-w-0 flex-1 truncate text-muted-foreground">
+                        {locationLabel}
+                      </span>
+                      
                     </div>
                   ) : (
                     <Button
