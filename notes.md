@@ -66,5 +66,4 @@ Working notes for the LendLeaf codebase. Update this file as things change.
 
 ## TODO
 
-- Commit + push current uncommitted changes (browse removal + messages fix + search filters + `add_book_genre` migration) when user asks.
 - Optional: realtime handler in `messages.tsx` reloads all conversations on every INSERT — could update just the affected conversation summary.
