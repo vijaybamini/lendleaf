@@ -1,5 +1,5 @@
 import { Link, useNavigate, useLocation, useSearch } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   BookMarked,
   LogOut,
@@ -11,7 +11,6 @@ import {
   X,
   PenSquare,
   Menu,
-  BookOpen,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { useCredits } from "@/hooks/use-credits";
@@ -37,33 +36,21 @@ export function SiteHeader() {
   const location = useLocation();
   const search = useSearch({ strict: false }) as { q?: string };
   const [query, setQuery] = useState("");
-  const [searchOpen, setSearchOpen] = useState(false);
-  const inputRef = useRef<HTMLInputElement | null>(null);
 
-  const onBrowse = location.pathname === "/browse";
   const onSearch = location.pathname === "/search";
 
-  // Sync local input with URL when on /browse and auto-open if there's an active query
+  // Sync local input with URL when on /search
   useEffect(() => {
-    if (onBrowse || onSearch) {
+    if (onSearch) {
       setQuery(search.q ?? "");
-      if (onBrowse && search.q) setSearchOpen(true);
     } else {
       setQuery("");
-      setSearchOpen(false);
     }
-  }, [onBrowse, onSearch, search.q]);
-
-  // Focus input when opened
-  useEffect(() => {
-    if (searchOpen && inputRef.current) {
-      inputRef.current.focus();
-    }
-  }, [searchOpen]);
+  }, [onSearch, search.q]);
 
   const submitSearch = (value: string) => {
     navigate({
-      to: "/browse",
+      to: "/search",
       search: () => ({
         q: value.trim() || undefined,
       }),
@@ -73,7 +60,7 @@ export function SiteHeader() {
   const handleSearchIconClick = () => {
     // Always navigate to the dedicated search experience.
     // This gives a consistent "tap search → get a search bar" behavior on mobile + desktop.
-    const existing = onBrowse ? (search.q ?? "") : "";
+    const existing = onSearch ? (search.q ?? "") : "";
     navigate({
       to: "/search",
       search: () => ({ q: existing.trim() || undefined }),
@@ -90,49 +77,7 @@ export function SiteHeader() {
           </span>
         </Link>
 
-        {user && onBrowse && searchOpen ? (
-          <>
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                submitSearch(query);
-              }}
-              className="hidden flex-1 max-w-md mx-1 sm:mx-2 md:block"
-              role="search"
-            >
-              <div className="relative">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-                <Input
-                  ref={inputRef}
-                  type="search"
-                  value={query}
-                  onChange={(e) => {
-                    setQuery(e.target.value);
-                    submitSearch(e.target.value);
-                  }}
-                  placeholder="Search books to borrow..."
-                  className="pl-8 pr-8 h-9 text-sm"
-                  aria-label="Search books"
-                />
-                <button
-                  type="button"
-                  onClick={() => {
-                    setQuery("");
-                    submitSearch("");
-                    setSearchOpen(false);
-                  }}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                  aria-label="Close search"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-            </form>
-            <div className="flex-1 md:hidden" />
-          </>
-        ) : (
-          <div className="flex-1" />
-        )}
+        <div className="flex-1" />
 
         <nav className="flex items-center gap-0.5 sm:gap-1 flex-shrink-0">
           {user ? (
@@ -157,11 +102,11 @@ export function SiteHeader() {
 
                   <div className="mt-6 space-y-2">
                     <Link
-                      to="/browse"
+                      to="/search"
                       className="flex items-center gap-3 rounded-md px-3 py-2 hover:bg-accent"
                     >
-                      <BookOpen className="h-5 w-5 text-muted-foreground" />
-                      <span className="font-medium">Browse</span>
+                      <Search className="h-5 w-5 text-muted-foreground" />
+                      <span className="font-medium">Search</span>
                     </Link>
                     <Link
                       to="/profile"
@@ -355,7 +300,6 @@ export function SiteHeader() {
                 type="button"
                 onClick={() => {
                   setQuery("");
-                  if (onBrowse) submitSearch("");
                 }}
                 className="absolute right-3 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground hover:bg-background hover:text-foreground"
                 aria-label="Clear search"

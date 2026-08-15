@@ -77,7 +77,7 @@ export function BookDiscoveryGrid({
           </Button>
         )}
         {showBrowseLink && (
-          <Link to="/browse" className="mt-4 text-sm text-primary hover:underline font-medium">
+          <Link to="/search" className="mt-4 text-sm text-primary hover:underline font-medium">
             Browse all books →
           </Link>
         )}

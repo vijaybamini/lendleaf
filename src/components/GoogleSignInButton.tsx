@@ -17,7 +17,7 @@ export function GoogleSignInButton({ mode = "login", className }: GoogleSignInBu
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${window.location.origin}/browse`,
+          redirectTo: `${window.location.origin}/`,
         },
       });
 

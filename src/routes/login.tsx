@@ -29,7 +29,7 @@ function LoginPage() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    if (!loading && user) navigate({ to: "/browse" });
+    if (!loading && user) navigate({ to: "/" });
   }, [loading, user, navigate]);
 
   if (loading) {
@@ -53,7 +53,7 @@ function LoginPage() {
       return;
     }
     toast.success("Welcome back");
-    navigate({ to: "/browse" });
+    navigate({ to: "/" });
   };
 
   return (

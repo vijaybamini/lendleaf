@@ -7,6 +7,7 @@ export interface OLBook {
   authors: string[];
   isbn: string | null;
   coverUrl: string | null;
+  subjects: string[];
 }
 
 interface OLSearchDoc {
@@ -17,6 +18,8 @@ interface OLSearchDoc {
   cover_i?: number;
   cover_edition_key?: string;
   edition_key?: string[];
+  subject?: string[];
+  subject_facet?: string[];
 }
 
 interface OLSearchResponse {
@@ -65,5 +68,47 @@ export async function searchOpenLibrary(query: string, limit = 12): Promise<OLBo
     authors: doc.author_name ?? [],
     isbn: pickIsbn(doc),
     coverUrl: coverFromDoc(doc),
+    subjects: doc.subject_facet ?? doc.subject ?? [],
   }));
+}
+
+// Curated genres used for book filtering and genre inference.
+export const GENRES = [
+  "Fiction",
+  "Non-fiction",
+  "Romance",
+  "Fantasy",
+  "Science Fiction",
+  "Mystery & Thriller",
+  "Horror",
+  "Biography & Memoir",
+  "History",
+  "Young Adult",
+  "Poetry",
+] as const;
+
+export type Genre = (typeof GENRES)[number];
+
+// Infer a genre from OpenLibrary subjects. Specific genres win over generic ones.
+export function inferGenre(subjects: string[]): Genre | null {
+  const s = subjects.map((x) => x.toLowerCase());
+  const has = (re: RegExp) => s.some((x) => re.test(x));
+
+  if (has(/romance/)) return "Romance";
+  if (has(/fantasy|magic|wizard/)) return "Fantasy";
+  if (has(/science fiction|sci[ -]?fi|speculative|dystopia/)) return "Science Fiction";
+  if (has(/mystery|thriller|detective|crime|suspense/)) return "Mystery & Thriller";
+  if (has(/horror|paranormal/)) return "Horror";
+  if (has(/biography|autobiography|memoir/)) return "Biography & Memoir";
+  if (has(/history|historical/)) return "History";
+  if (has(/poetry|poems|poet/)) return "Poetry";
+  if (has(/young adult|teen|juvenile/)) return "Young Adult";
+  if (has(/fiction|novel|stories|literature/)) return "Fiction";
+  if (
+    has(
+      /physic|cosmolog|astronom|chemist|mathemat|biolog|geolog|scien|engineer|technolog|comput|econom|psycholog|medic|health|philosoph|nature|environment|travel|cook|geograph|sociolog|politic|law|education|religion|sport|business/,
+    )
+  )
+    return "Non-fiction";
+  return null;
 }

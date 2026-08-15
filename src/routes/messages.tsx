@@ -111,7 +111,7 @@ function MessagesPage() {
     if (!user) return;
     const { data, error } = await supabase
       .from("messages")
-      .select("*")
+      .select("id, sender_id, recipient_id, content, read, created_at")
       .or(`sender_id.eq.${user.id},recipient_id.eq.${user.id}`)
       .order("created_at", { ascending: false })
       .limit(500);
@@ -175,7 +175,6 @@ function MessagesPage() {
       return;
     }
     if (loadedPartnerRef.current === activePartnerId) return;
-    loadedPartnerRef.current = activePartnerId;
 
     let cancelled = false;
     setLoadingMsgs(true);
@@ -183,7 +182,7 @@ function MessagesPage() {
     (async () => {
       const { data, error } = await supabase
         .from("messages")
-        .select("*")
+        .select("id, sender_id, recipient_id, content, read, created_at")
         .or(
           `and(sender_id.eq.${user.id},recipient_id.eq.${activePartnerId}),and(sender_id.eq.${activePartnerId},recipient_id.eq.${user.id})`,
         )
@@ -196,6 +195,7 @@ function MessagesPage() {
         setLoadingMsgs(false);
         return;
       }
+      loadedPartnerRef.current = activePartnerId;
       setMessages((data ?? []) as MessageRow[]);
       setLoadingMsgs(false);
 
