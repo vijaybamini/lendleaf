@@ -41,9 +41,13 @@ interface Book {
 }
 
 function SearchPage() {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const navigate = Route.useNavigate();
   const search = Route.useSearch();
+
+  useEffect(() => {
+    if (!loading && !user) navigate({ to: "/" });
+  }, [loading, navigate, user]);
   const { location, loading: locLoading, error: locError, detect, clear } = useUserLocation();
   const [q, setQ] = useState(search.q ?? "");
   const [books, setBooks] = useState<Book[]>([]);
@@ -200,6 +204,8 @@ function SearchPage() {
       : hasFilters
         ? "No books match these filters"
         : "No books available";
+
+  if (loading || !user) return null;
 
   return (
     <>

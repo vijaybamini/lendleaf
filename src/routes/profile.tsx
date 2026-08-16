@@ -1,12 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Loader2, Plus } from "lucide-react";
+import { Loader2, Menu, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { AddBookDialog } from "@/components/AddBookDialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { BookDiscoveryGrid, type Book as GridBook } from "@/components/BookDiscoveryGrid";
 import { BookDetailModal, type BookDetail } from "@/components/BookDetailModal";
+import { ProfileMenuSheet } from "@/components/ProfileMenuSheet";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 
@@ -57,6 +58,7 @@ function ProfilePage() {
   const [selectedBook, setSelectedBook] = useState<BookDetail | null>(null);
   const [bookModalOpen, setBookModalOpen] = useState(false);
   const [addBookOpen, setAddBookOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const metadata = (user?.user_metadata ?? {}) as UserMetadata;
   const displayName = useMemo(() => {
@@ -220,7 +222,18 @@ function ProfilePage() {
             <Button
               type="button"
               size="icon"
-              className="fixed right-3 top-[calc(1rem+env(safe-area-inset-top))] z-50 h-11 w-11 rounded-full bg-primary text-primary-foreground shadow-lg hover:bg-primary/90 sm:right-4 sm:top-6 xl:right-[calc((100vw-72rem)/2+1rem)]"
+              className="fixed left-3 top-[calc(1rem+env(safe-area-inset-top))] z-50 h-11 w-11 rounded-md border border-border bg-background/90 text-foreground shadow-lg backdrop-blur hover:bg-accent hover:text-accent-foreground sm:left-4 sm:top-6 xl:left-[calc((100vw-72rem)/2+1rem)]"
+              onClick={() => setMenuOpen(true)}
+              aria-label="Menu"
+              title="Menu"
+            >
+              <Menu className="h-5 w-5" />
+            </Button>
+
+            <Button
+              type="button"
+              size="icon"
+              className="fixed right-3 top-[calc(1rem+env(safe-area-inset-top))] z-50 h-11 w-11 rounded-md bg-primary text-primary-foreground shadow-lg hover:bg-primary/90 sm:right-4 sm:top-6 xl:right-[calc((100vw-72rem)/2+1rem)]"
               onClick={handleAddToShelf}
               aria-label="Add book to shelf"
               title="Add book to shelf"
@@ -269,6 +282,14 @@ function ProfilePage() {
       </div>
 
       <AddBookDialog open={addBookOpen} onOpenChange={setAddBookOpen} onAdded={fetchProfile} />
+
+      <ProfileMenuSheet
+        open={menuOpen}
+        onOpenChange={setMenuOpen}
+        displayName={displayName}
+        handle={handle}
+        avatarUrl={avatarUrl}
+      />
 
       <BookDetailModal
         book={selectedBook}
