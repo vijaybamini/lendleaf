@@ -151,6 +151,51 @@ function RequestsPage() {
     queryClient.invalidateQueries({ queryKey: ["credits"] });
   };
 
+  // Live updates: refetch whenever any of my transactions change on the server
+  // (new request, accept/reject, handover/return confirmations, cancellations).
+  useEffect(() => {
+    if (!user) return;
+
+    const handle = (payload: {
+      eventType: "INSERT" | "UPDATE" | "DELETE";
+      new: Partial<TxRow> | Record<string, never>;
+    }) => {
+      const row = payload.new as Partial<TxRow>;
+      if (
+        payload.eventType === "INSERT" &&
+        row.lender_id === user.id &&
+        row.status === "pending"
+      ) {
+        toast("New borrow request received");
+      }
+      invalidateAll();
+    };
+
+    const channel = supabase
+      .channel(`transactions-${user.id}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "transactions", filter: `lender_id=eq.${user.id}` },
+        handle,
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "transactions",
+          filter: `borrower_id=eq.${user.id}`,
+        },
+        handle,
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, queryClient]);
+
   const respondMutation = useMutation({
     mutationFn: async ({ id, accept }: { id: string; accept: boolean }) => {
       const { error } = await supabase.rpc("respond_to_request", {
