@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { useCredits } from "@/hooks/use-credits";
+import { useUnreadMessagesCount, usePendingRequestsCount } from "@/hooks/use-notification-badges";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
@@ -32,6 +33,8 @@ import {
 export function SiteHeader() {
   const { user, signOut } = useAuth();
   const { credits } = useCredits();
+  const unreadMessages = useUnreadMessagesCount();
+  const pendingRequests = usePendingRequestsCount();
   const navigate = useNavigate();
   const location = useLocation();
   const search = useSearch({ strict: false }) as { q?: string };
@@ -119,7 +122,15 @@ export function SiteHeader() {
                       to="/requests"
                       className="flex items-center gap-3 rounded-md px-3 py-2 hover:bg-accent"
                     >
-                      <Inbox className="h-5 w-5 text-muted-foreground" />
+                      <span className="relative flex-shrink-0">
+                        <Inbox className="h-5 w-5 text-muted-foreground" />
+                        {pendingRequests > 0 && (
+                          <span
+                            className="absolute -right-1 -top-0.5 h-2 w-2 rounded-full bg-emerald-500"
+                            aria-hidden="true"
+                          />
+                        )}
+                      </span>
                       <span className="font-medium">Requests</span>
                     </Link>
                     <Link
@@ -127,7 +138,15 @@ export function SiteHeader() {
                       search={{ to: undefined }}
                       className="flex items-center gap-3 rounded-md px-3 py-2 hover:bg-accent"
                     >
-                      <MessageCircle className="h-5 w-5 text-muted-foreground" />
+                      <span className="relative flex-shrink-0">
+                        <MessageCircle className="h-5 w-5 text-muted-foreground" />
+                        {unreadMessages > 0 && (
+                          <span
+                            className="absolute -right-1 -top-0.5 h-2 w-2 rounded-full bg-primary"
+                            aria-hidden="true"
+                          />
+                        )}
+                      </span>
                       <span className="font-medium">Messages</span>
                     </Link>
                     <Link
@@ -199,8 +218,19 @@ export function SiteHeader() {
                   </Link>
                 </Button>
                 <Button asChild variant="ghost" size="icon" title="Requests" aria-label="Requests">
-                  <Link to="/requests">
-                    <Inbox className="h-5 w-5" />
+                  <Link
+                    to="/requests"
+                    aria-label={pendingRequests > 0 ? "Requests (new)" : "Requests"}
+                  >
+                    <span className="relative">
+                      <Inbox className="h-5 w-5" />
+                      {pendingRequests > 0 && (
+                        <span
+                          className="absolute -right-1 -top-0.5 h-2 w-2 rounded-full bg-emerald-500"
+                          aria-hidden="true"
+                        />
+                      )}
+                    </span>
                   </Link>
                 </Button>
                 <Button
@@ -214,9 +244,23 @@ export function SiteHeader() {
                     <PenSquare className="h-5 w-5" />
                   </Link>
                 </Button>
-                <Button asChild variant="ghost" size="icon" title="Messages" aria-label="Messages">
+                <Button
+                  asChild
+                  variant="ghost"
+                  size="icon"
+                  title="Messages"
+                  aria-label={unreadMessages > 0 ? "Messages (new)" : "Messages"}
+                >
                   <Link to="/messages" search={{ to: undefined }}>
-                    <MessageCircle className="h-5 w-5" />
+                    <span className="relative">
+                      <MessageCircle className="h-5 w-5" />
+                      {unreadMessages > 0 && (
+                        <span
+                          className="absolute -right-1 -top-0.5 h-2 w-2 rounded-full bg-primary"
+                          aria-hidden="true"
+                        />
+                      )}
+                    </span>
                   </Link>
                 </Button>
               </div>

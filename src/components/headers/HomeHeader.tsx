@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Inbox, Plus, Search, PenSquare, Library } from "lucide-react";
 import { AddBookDialog } from "@/components/AddBookDialog";
 import { Button } from "@/components/ui/button";
+import { usePendingRequestsCount } from "@/hooks/use-notification-badges";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,6 +14,7 @@ import {
 export function HomeHeader() {
   const navigate = useNavigate();
   const [addBookOpen, setAddBookOpen] = useState(false);
+  const pendingRequests = usePendingRequestsCount();
 
   const openSearch = (): void => {
     void navigate({ to: "/search" });
@@ -33,8 +35,16 @@ export function HomeHeader() {
               variant="ghost"
               className="h-10 gap-2 rounded-full px-3 text-foreground hover:bg-accent hover:text-accent-foreground"
             >
-              <Link to="/requests" aria-label="Requests">
-                <Inbox className="h-5 w-5" />
+              <Link to="/requests" aria-label={pendingRequests > 0 ? "Requests (new)" : "Requests"}>
+                <span className="relative">
+                  <Inbox className="h-5 w-5" />
+                  {pendingRequests > 0 && (
+                    <span
+                      className="absolute -right-1 -top-0.5 h-2 w-2 rounded-full bg-emerald-500 ring-2 ring-background"
+                      aria-hidden="true"
+                    />
+                  )}
+                </span>
                 <span className="hidden text-sm font-semibold sm:inline">Requests</span>
               </Link>
             </Button>

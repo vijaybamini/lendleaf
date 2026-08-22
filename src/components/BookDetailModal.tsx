@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { X, User, BookOpen, Pencil, Trash2, Loader2, Check } from "lucide-react";
+import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
@@ -259,18 +260,23 @@ export function BookDetailModal({ book, onClose, isOpen, onEdit, onRemove }: Boo
             )}
 
             {/* Owner Info - Compact Row */}
-            {!isMine && (
-              <div className="flex items-center gap-2 mb-4">
+            {!isMine && book.owner_id && (
+              <Link
+                to="/messages"
+                search={{ to: book.owner_id }}
+                aria-label={`Message ${book.owner_name || "owner"}`}
+                className="group flex items-center gap-2 mb-4"
+              >
                 <div className="h-6 w-6 rounded-full bg-primary/30 text-primary flex items-center justify-center flex-shrink-0 text-[10px]">
                   <User className="h-3 w-3" />
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="text-[11px] text-muted-foreground">Shared by</p>
-                  <p className="text-xs font-medium text-foreground truncate">
+                  <p className="text-xs font-medium text-foreground truncate group-hover:text-primary transition-colors">
                     {book.owner_name || "Owner"}
                   </p>
                 </div>
-              </div>
+              </Link>
             )}
 
             {isMine && !isEditing && (
@@ -293,7 +299,7 @@ export function BookDetailModal({ book, onClose, isOpen, onEdit, onRemove }: Boo
                 ) : requestSent ? (
                   <>
                     <Check className="mr-1.5 h-4 w-4" />
-                    Cancel Request
+                    Requested
                   </>
                 ) : (
                   "Request to Borrow"

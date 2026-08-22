@@ -3,7 +3,7 @@ import { ArrowLeft, Search, X, SlidersHorizontal, MapPin, Loader2 } from "lucide
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { useEffect, useRef, type ReactNode } from "react";
+import { useRef, type ReactNode } from "react";
 
 export interface SearchFilters {
   genre: string | null;
@@ -65,10 +65,6 @@ export function SearchHeader({
 }: SearchHeaderProps) {
   const navigate = useNavigate();
   const inputRef = useRef<HTMLInputElement | null>(null);
-
-  useEffect(() => {
-    inputRef.current?.focus();
-  }, []);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
