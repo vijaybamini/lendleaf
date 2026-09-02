@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { X, User, BookOpen, Pencil, Trash2, Loader2, Check } from "lucide-react";
+import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
@@ -31,6 +32,7 @@ export function BookDetailModal({ book, onClose, isOpen, onEdit, onRemove }: Boo
   const { user } = useAuth();
   const [isRequesting, setIsRequesting] = useState(false);
   const [requestSent, setRequestSent] = useState(false);
+  const [pendingTxId, setPendingTxId] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState("");
   const [editAuthor, setEditAuthor] = useState("");
@@ -46,6 +48,7 @@ export function BookDetailModal({ book, onClose, isOpen, onEdit, onRemove }: Boo
     setIsEditing(false);
     setIsRequesting(false);
     setRequestSent(false);
+    setPendingTxId(null);
     setIsSaving(false);
     setIsRemoving(false);
 
@@ -59,7 +62,9 @@ export function BookDetailModal({ book, onClose, isOpen, onEdit, onRemove }: Boo
       .eq("status", "pending")
       .maybeSingle()
       .then(({ data }) => {
-        if (!cancelled) setRequestSent(Boolean(data));
+        if (cancelled) return;
+        setRequestSent(Boolean(data));
+        setPendingTxId(data?.id ?? null);
       });
 
     return () => {
@@ -109,12 +114,17 @@ export function BookDetailModal({ book, onClose, isOpen, onEdit, onRemove }: Boo
   };
 
   const handleCancelRequest = async () => {
+    if (!pendingTxId) {
+      toast.error("No pending request to cancel");
+      return;
+    }
+
     setIsRequesting(true);
     setRequestSent(false);
 
     try {
       const { error } = await supabase.rpc("cancel_borrow_request", {
-        _book_id: book.id,
+        _transaction_id: pendingTxId,
       });
 
       if (error) {
@@ -188,7 +198,7 @@ export function BookDetailModal({ book, onClose, isOpen, onEdit, onRemove }: Boo
         onClick={onClose}
       >
         <div
-          className="w-[320px] bg-zinc-900 rounded-2xl overflow-hidden shadow-2xl pointer-events-auto border border-zinc-800 animate-in zoom-in-95 duration-300"
+          className="w-[320px] bg-card rounded-2xl overflow-hidden shadow-2xl pointer-events-auto border border-border animate-in zoom-in-95 duration-300"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Close Button */}
@@ -196,14 +206,14 @@ export function BookDetailModal({ book, onClose, isOpen, onEdit, onRemove }: Boo
             <button
               onClick={onClose}
               aria-label="Close"
-              className="p-1.5 hover:bg-zinc-800 rounded-full transition-colors text-zinc-400 hover:text-white"
+              className="p-1.5 hover:bg-accent rounded-full transition-colors text-muted-foreground hover:text-foreground"
             >
               <X className="h-4 w-4" />
             </button>
           </div>
 
           {/* Book Cover - Compact */}
-          <div className="relative bg-black rounded-t-2xl flex items-center justify-center py-3">
+          <div className="relative bg-muted rounded-t-2xl flex items-center justify-center py-3">
             {book.cover_image ? (
               <img
                 src={book.cover_image}
@@ -228,7 +238,7 @@ export function BookDetailModal({ book, onClose, isOpen, onEdit, onRemove }: Boo
                   value={editTitle}
                   onChange={(event) => setEditTitle(event.target.value)}
                   maxLength={200}
-                  className="h-9 border-zinc-700 bg-zinc-950 text-sm text-white"
+                  className="h-9 border-border bg-background text-sm text-foreground"
                   aria-label="Book title"
                 />
                 <Input
@@ -236,36 +246,41 @@ export function BookDetailModal({ book, onClose, isOpen, onEdit, onRemove }: Boo
                   onChange={(event) => setEditAuthor(event.target.value)}
                   maxLength={200}
                   placeholder="Author"
-                  className="h-9 border-zinc-700 bg-zinc-950 text-sm text-white"
+                  className="h-9 border-border bg-background text-sm text-foreground"
                   aria-label="Book author"
                 />
               </div>
             ) : (
               <div className="mb-3 mt-2">
-                <h3 className="font-serif font-semibold text-white text-base line-clamp-2">
+                <h3 className="font-serif font-semibold text-foreground text-base line-clamp-2">
                   {book.title}
                 </h3>
-                {book.author && <p className="text-zinc-400 text-xs mt-1">{book.author}</p>}
+                {book.author && <p className="text-muted-foreground text-xs mt-1">{book.author}</p>}
               </div>
             )}
 
             {/* Owner Info - Compact Row */}
-            {!isMine && (
-              <div className="flex items-center gap-2 mb-4">
+            {!isMine && book.owner_id && (
+              <Link
+                to="/messages"
+                search={{ to: book.owner_id }}
+                aria-label={`Message ${book.owner_name || "owner"}`}
+                className="group flex items-center gap-2 mb-4"
+              >
                 <div className="h-6 w-6 rounded-full bg-primary/30 text-primary flex items-center justify-center flex-shrink-0 text-[10px]">
                   <User className="h-3 w-3" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-[11px] text-zinc-500">Shared by</p>
-                  <p className="text-xs font-medium text-white truncate">
+                  <p className="text-[11px] text-muted-foreground">Shared by</p>
+                  <p className="text-xs font-medium text-foreground truncate group-hover:text-primary transition-colors">
                     {book.owner_name || "Owner"}
                   </p>
                 </div>
-              </div>
+              </Link>
             )}
 
             {isMine && !isEditing && (
-              <div className="text-xs text-zinc-400 mb-4">This is your book</div>
+              <div className="text-xs text-muted-foreground mb-4">This is your book</div>
             )}
 
             {/* Action Button */}
@@ -275,8 +290,8 @@ export function BookDetailModal({ book, onClose, isOpen, onEdit, onRemove }: Boo
                 disabled={isRequesting}
                 className={`w-full h-9 text-sm font-semibold transition-all duration-300 ${
                   requestSent
-                    ? "bg-zinc-700 hover:bg-zinc-600"
-                    : "bg-emerald-600 hover:bg-emerald-700"
+                    ? "bg-muted text-foreground hover:bg-accent"
+                    : "bg-primary hover:bg-primary/90"
                 }`}
               >
                 {isRequesting ? (
@@ -284,7 +299,7 @@ export function BookDetailModal({ book, onClose, isOpen, onEdit, onRemove }: Boo
                 ) : requestSent ? (
                   <>
                     <Check className="mr-1.5 h-4 w-4" />
-                    Cancel Request
+                    Requested
                   </>
                 ) : (
                   "Request to Borrow"
@@ -303,7 +318,7 @@ export function BookDetailModal({ book, onClose, isOpen, onEdit, onRemove }: Boo
                         setIsEditing(false);
                       }}
                       disabled={isSaving}
-                      className="h-9 border-zinc-700 bg-zinc-800/50 text-sm text-zinc-200 hover:bg-zinc-800 hover:text-white"
+                      className="h-9 border-border bg-card text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
                     >
                       Cancel
                     </Button>
@@ -311,7 +326,7 @@ export function BookDetailModal({ book, onClose, isOpen, onEdit, onRemove }: Boo
                       type="button"
                       onClick={handleSaveEdit}
                       disabled={isSaving || !onEdit}
-                      className="h-9 bg-emerald-600 text-sm font-semibold hover:bg-emerald-700"
+                      className="h-9 bg-primary text-sm font-semibold hover:bg-primary/90"
                     >
                       {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
                     </Button>
@@ -323,7 +338,7 @@ export function BookDetailModal({ book, onClose, isOpen, onEdit, onRemove }: Boo
                       variant="outline"
                       onClick={() => setIsEditing(true)}
                       disabled={!onEdit || isRemoving}
-                      className="h-9 border-zinc-700 bg-zinc-800/50 text-sm text-zinc-200 hover:bg-zinc-800 hover:text-white"
+                      className="h-9 border-border bg-card text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
                     >
                       <Pencil className="mr-1.5 h-3.5 w-3.5" />
                       Edit
@@ -333,7 +348,7 @@ export function BookDetailModal({ book, onClose, isOpen, onEdit, onRemove }: Boo
                       variant="outline"
                       onClick={handleRemove}
                       disabled={!onRemove || isRemoving}
-                      className="h-9 border-red-900/70 bg-red-950/30 text-sm text-red-200 hover:bg-red-950/60 hover:text-red-100"
+                      className="h-9 border-red-200 bg-red-50 text-sm text-red-700 hover:bg-red-100 hover:text-red-800"
                     >
                       {isRemoving ? (
                         <Loader2 className="h-4 w-4 animate-spin" />

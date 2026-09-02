@@ -1,16 +1,32 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect, useCallback } from "react";
+import { MapPin, Loader2 } from "lucide-react";
 import { SearchHeader } from "@/components/headers/SearchHeader";
 import { BookDiscoveryGrid } from "@/components/BookDiscoveryGrid";
 import { BookDetailModal, type BookDetail } from "@/components/BookDetailModal";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/lib/auth";
+import { useUserLocation } from "@/hooks/use-location";
+import { GENRES } from "@/lib/openLibrary";
+import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/search")({
   component: SearchPage,
-  validateSearch: (search: Record<string, unknown>): { q?: string } => ({
-    q: typeof search.q === "string" && search.q.length > 0 ? search.q : undefined,
-  }),
+  validateSearch: (search: Record<string, unknown>): { q?: string; genre?: string; km?: number } => {
+    const kmValue =
+      typeof search.km === "number"
+        ? search.km
+        : typeof search.km === "string"
+          ? Number(search.km)
+          : NaN;
+    return {
+      q: typeof search.q === "string" && search.q.length > 0 ? search.q : undefined,
+      genre:
+        typeof search.genre === "string" && search.genre.length > 0 ? search.genre : undefined,
+      km: Number.isFinite(kmValue) && kmValue > 0 ? kmValue : undefined,
+    };
+  },
   head: () => ({ meta: [{ title: "Search — LendLeaf" }] }),
 });
 
@@ -25,67 +41,90 @@ interface Book {
 }
 
 function SearchPage() {
+  const { user, loading } = useAuth();
   const navigate = Route.useNavigate();
   const search = Route.useSearch();
+
+  useEffect(() => {
+    if (!loading && !user) navigate({ to: "/" });
+  }, [loading, navigate, user]);
+  const { location, loading: locLoading, error: locError, detect, clear } = useUserLocation();
   const [q, setQ] = useState(search.q ?? "");
   const [books, setBooks] = useState<Book[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedBook, setSelectedBook] = useState<BookDetail | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  // Fetch books based on search query
-  const fetchBooks = useCallback(async (query: string) => {
-    setIsLoading(true);
-    try {
-      let result;
-
-      if (query.trim()) {
-        // Search for specific books
-        const searchTerm = query.toLowerCase();
-        const { data: searchResults, error } = await supabase
+  // Fetch books and apply text + genre + nearby filters client-side
+  const fetchBooks = useCallback(
+    async (query: string, genre: string | null, km: number | null) => {
+      setIsLoading(true);
+      try {
+        let queryBuilder = supabase
           .from("books")
-          .select("id, title, author, cover_image, owner_id")
-          .limit(30);
+          .select("id, title, author, cover_image, owner_id, genre")
+          .order("created_at", { ascending: false })
+          .limit(100);
 
+        if (user) queryBuilder = queryBuilder.neq("owner_id", user.id);
+
+        const { data, error } = await queryBuilder;
         if (error) {
           toast.error("Couldn't load books");
           setBooks([]);
-        } else {
-          // Client-side filtering for better UX
-          const filtered = (searchResults ?? []).filter(
-            (book: Book) =>
-              book.title.toLowerCase().includes(searchTerm) ||
-              (book.author && book.author.toLowerCase().includes(searchTerm)),
+          return;
+        }
+
+        let list = (data ?? []) as Book[];
+
+        if (query.trim()) {
+          const term = query.toLowerCase();
+          list = list.filter(
+            (b) =>
+              b.title.toLowerCase().includes(term) ||
+              (b.author && b.author.toLowerCase().includes(term)),
           );
-
-          // Fetch owner names for filtered books
-          const withOwnerNames = await enrichBooksWithOwnerNames(filtered);
-          setBooks(withOwnerNames);
         }
-      } else {
-        // Show trending/popular books (latest books)
-        result = await supabase
-          .from("books")
-          .select("id, title, author, cover_image, owner_id")
-          .order("created_at", { ascending: false })
-          .limit(30);
 
-        if (result.error) {
-          toast.error("Couldn't load books");
-          setBooks([]);
-        } else {
-          // Fetch owner names for result books
-          const withOwnerNames = await enrichBooksWithOwnerNames(result.data ?? []);
-          setBooks(withOwnerNames);
+        if (genre) {
+          list = list.filter((b) => b.genre === genre);
         }
+
+        if (km) {
+          if (!location) {
+            setBooks([]);
+            return;
+          }
+          const { data: distData, error: distErr } = await supabase.rpc(
+            "nearby_book_distances",
+            {
+              _lat: location.lat,
+              _lng: location.lng,
+            },
+          );
+          if (distErr) {
+            toast.error("Couldn't load nearby books");
+            setBooks([]);
+            return;
+          }
+          const distMap = new Map((distData ?? []).map((d) => [d.book_id, d.distance_km] as const));
+          list = list.filter((b) => {
+            const d = distMap.get(b.id);
+            return typeof d === "number" && d <= km;
+          });
+        }
+
+        const withOwnerNames = await enrichBooksWithOwnerNames(list);
+        setBooks(withOwnerNames);
+      } catch (err) {
+        console.error("Search error:", err);
+        setBooks([]);
+      } finally {
+        setIsLoading(false);
       }
-    } catch (err) {
-      console.error("Search error:", err);
-      setBooks([]);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+    },
+    [user, location],
+  );
 
   // Helper function to enrich books with owner names
   const enrichBooksWithOwnerNames = async (booksToEnrich: Book[]): Promise<Book[]> => {
@@ -108,16 +147,37 @@ function SearchPage() {
     }));
   };
 
-  // Fetch books when search query changes
+  // Fetch books when query or filters change
   useEffect(() => {
-    fetchBooks(search.q ?? "");
-  }, [search.q, fetchBooks]);
+    fetchBooks(search.q ?? "", search.genre ?? null, search.km ?? null);
+  }, [search.q, search.genre, search.km, fetchBooks]);
 
   const submit = (value: string) => {
     navigate({
       to: "/search",
-      search: () => ({ q: value.trim() || undefined }),
+      search: () => ({
+        q: value.trim() || undefined,
+        genre: search.genre,
+        km: search.km,
+      }),
     });
+  };
+
+  const handleFiltersChange = (filters: { genre: string | null; km: number | null }) => {
+    navigate({
+      to: "/search",
+      search: () => ({
+        q: q.trim() || undefined,
+        genre: filters.genre ?? undefined,
+        km: filters.km ?? undefined,
+      }),
+    });
+  };
+
+  const handleDetectLocation = async () => {
+    const loc = await detect();
+    if (loc) toast.success(loc.label ? `Location set: ${loc.label}` : "Location set");
+    else if (locError) toast.error(locError);
   };
 
   const handleBookClick = (book: Book) => {
@@ -135,24 +195,83 @@ function SearchPage() {
     setIsModalOpen(true);
   };
 
+  const hasFilters = !!(search.genre || search.km);
+  const nearbyPending = !!search.km && !location;
+  const emptyMessage = q
+    ? `No books match "${q}"`
+    : nearbyPending
+      ? "Share your location to see nearby books"
+      : hasFilters
+        ? "No books match these filters"
+        : "No books available";
+
+  if (loading || !user) return null;
+
   return (
     <>
-      <SearchHeader value={q} onChange={setQ} onSubmit={submit} />
+      <SearchHeader
+        value={q}
+        onChange={setQ}
+        onSubmit={submit}
+        filters={{ genre: search.genre ?? null, km: search.km ?? null }}
+        onFiltersChange={handleFiltersChange}
+        genreOptions={[...GENRES]}
+        locationLabel={location?.label ?? null}
+        locationLoading={locLoading}
+        locationError={locError}
+        onDetectLocation={handleDetectLocation}
+        onClearLocation={clear}
+      />
       <main className="mx-auto max-w-6xl px-3 py-4 sm:px-4 sm:py-6">
-        {/* Section header */}
-        {q && (
-          <div className="mb-4 px-0 sm:mb-6">
-            <h2 className="text-lg sm:text-xl font-semibold text-zinc-100">Results for "{q}"</h2>
-            <p className="text-sm text-zinc-400 mt-1">
-              Found {books.length} book{books.length !== 1 ? "s" : ""}
-            </p>
+        {/* Location prompt for the nearby filter */}
+        {nearbyPending && (
+          <div className="mb-4 flex items-center gap-3 rounded-md border bg-card px-4 py-3 text-sm sm:mb-6">
+            <MapPin className="h-4 w-4 flex-shrink-0 text-primary" />
+            <span className="min-w-0 flex-1 text-muted-foreground">
+              Share your location to see books within {search.km} km.
+            </span>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleDetectLocation}
+              disabled={locLoading}
+            >
+              {locLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Use my location"}
+            </Button>
           </div>
         )}
 
-        {!q && (
+        {/* Section header */}
+        {hasFilters ? (
           <div className="mb-4 px-0 sm:mb-6">
-            <h2 className="text-lg sm:text-xl font-semibold text-zinc-100">Trending Books</h2>
-            <p className="text-sm text-zinc-400 mt-1">Popular books in the Lend Leaf community</p>
+            <h2 className="text-lg sm:text-xl font-semibold text-foreground">
+              {q
+                ? `Results for "${q}"`
+                : search.km
+                  ? `Books within ${search.km} km`
+                  : "Filtered Books"}
+            </h2>
+            {!nearbyPending && (
+              <p className="text-sm text-muted-foreground mt-1">
+                Found {books.length} book{books.length !== 1 ? "s" : ""}
+              </p>
+            )}
+          </div>
+        ) : q ? (
+          <div className="mb-4 px-0 sm:mb-6">
+            <h2 className="text-lg sm:text-xl font-semibold text-foreground">
+              Results for "{q}"
+            </h2>
+            <p className="text-sm text-muted-foreground mt-1">
+              Found {books.length} book{books.length !== 1 ? "s" : ""}
+            </p>
+          </div>
+        ) : (
+          <div className="mb-4 px-0 sm:mb-6">
+            <h2 className="text-lg sm:text-xl font-semibold text-foreground">Trending Books</h2>
+            <p className="text-sm text-muted-foreground mt-1">
+              Popular books in the Lend Leaf community
+            </p>
           </div>
         )}
 
@@ -160,8 +279,8 @@ function SearchPage() {
         <BookDiscoveryGrid
           books={books}
           isLoading={isLoading}
-          emptyMessage={q ? `No books match "${q}"` : "No books available"}
-          showBrowseLink={true}
+          emptyMessage={emptyMessage}
+          showBrowseLink={false}
           onBookClick={handleBookClick}
         />
       </main>

@@ -15,8 +15,7 @@ export const Route = createFileRoute("/posts")({
       { title: "Community — LendLeaf" },
       {
         name: "description",
-        content:
-          "Share thoughts and join discussions with the LendLeaf community.",
+        content: "Share thoughts and join discussions with the LendLeaf community.",
       },
       { property: "og:title", content: "Community — LendLeaf" },
       {
@@ -54,10 +53,10 @@ function PostsPage() {
         .select("display_name, avatar_url")
         .eq("id", user.id)
         .single();
-      
+
       // Derive handle from email (username before @)
       const handle = user.email?.split("@")[0] || "user";
-      
+
       setUserProfile({
         ...data,
         handle,
@@ -81,14 +80,16 @@ function PostsPage() {
   return (
     <>
       <div className="w-full sm:px-4 sm:py-8">
-        <div className="border-b border-white/10 bg-[#070a0f] px-4 py-3 sm:mb-6 sm:border-0 sm:bg-transparent sm:px-0 sm:py-0">
-          <h1 className="font-serif text-xl font-semibold text-white sm:text-4xl md:text-5xl">
+        <div className="border-b border-border bg-background px-4 py-3 sm:mb-6 sm:border-0 sm:bg-transparent sm:px-0 sm:py-0">
+          <h1 className="font-serif text-xl font-semibold text-foreground sm:text-4xl md:text-5xl">
             Posts
           </h1>
-          <p className="hidden text-sm text-zinc-400 sm:mt-1 sm:block sm:text-base">
+          <p className="hidden text-sm text-muted-foreground sm:mt-1 sm:block sm:text-base">
             Thoughts and discussions from members
           </p>
-          <p className="text-xs text-zinc-400 sm:hidden">Book talk from your lending circle</p>
+          <p className="text-xs text-muted-foreground sm:hidden">
+            Book talk from your lending circle
+          </p>
         </div>
         <Feed key={feedKey} />
       </div>

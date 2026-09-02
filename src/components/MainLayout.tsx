@@ -6,8 +6,8 @@ interface MainLayoutProps {
 
 export function MainLayout({ children }: MainLayoutProps) {
   return (
-    <div className="flex h-dvh flex-col overflow-hidden bg-[#070a0f] text-zinc-50">
-      <main className="mx-auto min-h-0 w-full max-w-6xl flex-1 overflow-y-auto overscroll-contain pb-8">
+    <div className="min-h-screen bg-background text-foreground">
+      <main className="mx-auto min-h-[calc(100dvh-7rem)] w-full max-w-6xl pb-[calc(5rem+env(safe-area-inset-bottom))]">
         {children}
       </main>
 

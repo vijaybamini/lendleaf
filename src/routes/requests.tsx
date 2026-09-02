@@ -151,6 +151,51 @@ function RequestsPage() {
     queryClient.invalidateQueries({ queryKey: ["credits"] });
   };
 
+  // Live updates: refetch whenever any of my transactions change on the server
+  // (new request, accept/reject, handover/return confirmations, cancellations).
+  useEffect(() => {
+    if (!user) return;
+
+    const handle = (payload: {
+      eventType: "INSERT" | "UPDATE" | "DELETE";
+      new: Partial<TxRow> | Record<string, never>;
+    }) => {
+      const row = payload.new as Partial<TxRow>;
+      if (
+        payload.eventType === "INSERT" &&
+        row.lender_id === user.id &&
+        row.status === "pending"
+      ) {
+        toast("New borrow request received");
+      }
+      invalidateAll();
+    };
+
+    const channel = supabase
+      .channel(`transactions-${user.id}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "transactions", filter: `lender_id=eq.${user.id}` },
+        handle,
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "transactions",
+          filter: `borrower_id=eq.${user.id}`,
+        },
+        handle,
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, queryClient]);
+
   const respondMutation = useMutation({
     mutationFn: async ({ id, accept }: { id: string; accept: boolean }) => {
       const { error } = await supabase.rpc("respond_to_request", {
@@ -199,6 +244,31 @@ function RequestsPage() {
     onSettled: invalidateAll,
   });
 
+  const cancelMutation = useMutation({
+    mutationFn: async ({ id }: { id: string }) => {
+      const { error } = await supabase.rpc("cancel_borrow_request", {
+        _transaction_id: id,
+      });
+      if (error) throw error;
+    },
+    onMutate: async ({ id }) => {
+      await queryClient.cancelQueries({ queryKey: outgoingKey });
+      const previous = queryClient.getQueryData<TxRow[]>(outgoingKey);
+      queryClient.setQueryData<TxRow[]>(outgoingKey, (old) =>
+        (old ?? []).map((r) => (r.id === id ? { ...r, status: "rejected" } : r)),
+      );
+      return { previous };
+    },
+    onError: (err: Error, _vars, ctx) => {
+      if (ctx?.previous) queryClient.setQueryData(outgoingKey, ctx.previous);
+      toast.error(err.message || "Couldn't cancel request");
+    },
+    onSuccess: () => {
+      toast.success("Request cancelled");
+    },
+    onSettled: invalidateAll,
+  });
+
   if (authLoading || !user) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -218,6 +288,7 @@ function RequestsPage() {
       if (r.status === "active" && !r.lender_returned) return true;
       return false;
     } else {
+      if (r.status === "pending") return true;
       if (r.status === "accepted" && !r.borrower_confirmed) return true;
       if (r.status === "active" && !r.borrower_returned) return true;
       return false;
@@ -278,12 +349,14 @@ function RequestsPage() {
                 busy={
                   (respondMutation.isPending && respondMutation.variables?.id === r.id) ||
                   (handoverMutation.isPending && handoverMutation.variables?.id === r.id) ||
-                  (returnMutation.isPending && returnMutation.variables?.id === r.id)
+                  (returnMutation.isPending && returnMutation.variables?.id === r.id) ||
+                  (cancelMutation.isPending && cancelMutation.variables?.id === r.id)
                 }
                 onAccept={() => respondMutation.mutate({ id: r.id, accept: true })}
                 onReject={() => respondMutation.mutate({ id: r.id, accept: false })}
                 onHandover={() => handoverMutation.mutate({ id: r.id, side: tab })}
                 onReturn={() => returnMutation.mutate({ id: r.id, side: tab })}
+                onCancel={() => cancelMutation.mutate({ id: r.id })}
               />
             ))}
 
@@ -354,6 +427,7 @@ function RequestItem({
   onReject,
   onHandover,
   onReturn,
+  onCancel,
 }: {
   req: TxRow;
   side: "incoming" | "outgoing";
@@ -364,6 +438,7 @@ function RequestItem({
   onReject?: () => void;
   onHandover?: () => void;
   onReturn?: () => void;
+  onCancel?: () => void;
 }) {
   const name = req.counterparty?.display_name ?? "a member";
   const bookTitle = req.book?.title ?? "Untitled";
@@ -459,6 +534,18 @@ function RequestItem({
                   Decline
                 </Button>
               </>
+            )}
+
+            {req.status === "pending" && side === "outgoing" && (
+              <Button
+                size="sm"
+                variant="secondary"
+                className="flex-1 h-8 text-xs font-semibold"
+                onClick={onCancel}
+                disabled={busy}
+              >
+                {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Cancel request"}
+              </Button>
             )}
 
             {req.status === "accepted" && side === "incoming" && !req.lender_confirmed && (

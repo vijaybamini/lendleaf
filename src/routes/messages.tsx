@@ -4,6 +4,7 @@ import { Loader2, Send, MessageCircle, ArrowLeft, Check, CheckCheck } from "luci
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { useVisibleViewportHeight } from "@/hooks/useVisibleViewportHeight";
 import { MessagesHeader } from "@/components/headers/MessagesHeader";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -88,6 +89,7 @@ function MessagesPage() {
   const navigate = useNavigate();
   const search = Route.useSearch();
   const activePartnerId = search.to ?? null;
+  useVisibleViewportHeight();
 
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [loadingConvs, setLoadingConvs] = useState(true);
@@ -111,7 +113,7 @@ function MessagesPage() {
     if (!user) return;
     const { data, error } = await supabase
       .from("messages")
-      .select("*")
+      .select("id, sender_id, recipient_id, content, read, created_at")
       .or(`sender_id.eq.${user.id},recipient_id.eq.${user.id}`)
       .order("created_at", { ascending: false })
       .limit(500);
@@ -175,7 +177,6 @@ function MessagesPage() {
       return;
     }
     if (loadedPartnerRef.current === activePartnerId) return;
-    loadedPartnerRef.current = activePartnerId;
 
     let cancelled = false;
     setLoadingMsgs(true);
@@ -183,7 +184,7 @@ function MessagesPage() {
     (async () => {
       const { data, error } = await supabase
         .from("messages")
-        .select("*")
+        .select("id, sender_id, recipient_id, content, read, created_at")
         .or(
           `and(sender_id.eq.${user.id},recipient_id.eq.${activePartnerId}),and(sender_id.eq.${activePartnerId},recipient_id.eq.${user.id})`,
         )
@@ -196,6 +197,7 @@ function MessagesPage() {
         setLoadingMsgs(false);
         return;
       }
+      loadedPartnerRef.current = activePartnerId;
       setMessages((data ?? []) as MessageRow[]);
       setLoadingMsgs(false);
 
@@ -351,12 +353,15 @@ function MessagesPage() {
 
   return (
     <>
-      <MessagesHeader 
-        title={activePartnerId && activePartner ? activePartner.display_name || "User" : "Messages"}
-        onBack={activePartnerId ? () => navigate({ to: "/messages" }) : undefined}
-      />
+      <MessagesHeader title="Messages" hideBack={!!activePartnerId} />
       <main className="container mx-auto max-w-5xl px-0 sm:px-4 py-0 sm:py-6">
-        <div className="sm:paper-card sm:rounded-xl overflow-hidden grid grid-cols-1 md:grid-cols-[320px_1fr] h-[calc(100dvh-56px-64px)] sm:h-[calc(100dvh-120px-64px)] md:h-[calc(100dvh-120px)]">
+        <div
+          className={`sm:paper-card sm:rounded-xl overflow-hidden grid grid-cols-1 md:grid-cols-[320px_1fr] ${
+            activePartnerId
+              ? "h-[calc(var(--vvh,100dvh)-56px)]"
+              : "h-[calc(var(--vvh,100dvh)-120px)]"
+          } sm:h-[calc(100dvh-120px-64px)] md:h-[calc(100dvh-120px)]`}
+        >
           {/* Conversation list — hidden on mobile when a chat is open */}
           <aside
             className={`border-r bg-card flex flex-col ${
@@ -459,13 +464,7 @@ function MessagesPage() {
               <>
                 {/* Chat header */}
                 <div className="flex items-center gap-3 px-3 sm:px-4 py-3 border-b bg-card flex-shrink-0">
-                  <Button
-                    asChild
-                    variant="ghost"
-                    size="icon"
-                    className="md:hidden -ml-1"
-                    aria-label="Back"
-                  >
+                  <Button asChild variant="ghost" size="icon" className="-ml-1" aria-label="Back">
                     <Link to="/messages" search={{ to: undefined }}>
                       <ArrowLeft className="h-5 w-5" />
                     </Link>

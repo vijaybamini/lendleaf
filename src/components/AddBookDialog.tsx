@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
-import { searchOpenLibrary, type OLBook } from "@/lib/openLibrary";
+import { searchOpenLibrary, inferGenre, type OLBook } from "@/lib/openLibrary";
 
 interface AddBookDialogProps {
   open: boolean;
@@ -89,6 +89,7 @@ export function AddBookDialog({ open, onOpenChange, onAdded }: AddBookDialogProp
       isbn: item.isbn,
       cover_image: item.coverUrl,
       google_books_id: item.id,
+      genre: inferGenre(item.subjects),
     });
     setAdding(null);
 

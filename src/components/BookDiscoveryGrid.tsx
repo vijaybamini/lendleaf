@@ -37,13 +37,13 @@ export function BookDiscoveryGrid({
 }: BookDiscoveryGridProps) {
   const isLibrary = variant === "library";
   const gridClass = "grid grid-cols-3 gap-px";
-  const itemClass = "group relative aspect-[2/3] cursor-pointer overflow-hidden bg-zinc-800";
+  const itemClass = "group relative aspect-[2/3] cursor-pointer overflow-hidden bg-muted";
 
   if (isLoading) {
     return (
       <div className={gridClass} aria-label="Loading books">
         {Array.from({ length: 9 }).map((_, index) => (
-          <div key={index} className="aspect-[2/3] animate-pulse bg-zinc-800" aria-hidden="true" />
+          <div key={index} className="aspect-[2/3] animate-pulse bg-muted" aria-hidden="true" />
         ))}
       </div>
     );
@@ -53,22 +53,20 @@ export function BookDiscoveryGrid({
     return (
       <div
         className={`flex flex-col items-center justify-center px-4 py-20 text-center ${
-          isLibrary
-            ? "rounded-xl border border-white/10 bg-gradient-to-b from-white/[0.045] to-transparent shadow-paper"
-            : ""
+          isLibrary ? "rounded-xl border border-border bg-card shadow-paper" : ""
         }`}
       >
         <div
           className={`mb-4 flex h-14 w-14 items-center justify-center rounded-md ${
             isLibrary
-              ? "bg-emerald-400/10 text-emerald-300 ring-1 ring-emerald-300/20"
+              ? "bg-secondary text-secondary-foreground ring-1 ring-border"
               : "text-muted-foreground/40"
           }`}
         >
           <BookOpen className="h-8 w-8" strokeWidth={1.5} />
         </div>
         {emptyTitle && (
-          <h2 className="font-serif text-2xl font-semibold text-zinc-100">{emptyTitle}</h2>
+          <h2 className="font-serif text-2xl font-semibold text-foreground">{emptyTitle}</h2>
         )}
         <p className={`max-w-sm text-muted-foreground ${emptyTitle ? "mt-2" : ""}`}>
           {emptyMessage}
@@ -79,7 +77,7 @@ export function BookDiscoveryGrid({
           </Button>
         )}
         {showBrowseLink && (
-          <Link to="/browse" className="mt-4 text-sm text-primary hover:underline font-medium">
+          <Link to="/search" className="mt-4 text-sm text-primary hover:underline font-medium">
             Browse all books →
           </Link>
         )}
@@ -102,7 +100,7 @@ export function BookDiscoveryGrid({
             <div
               className={`w-full h-full flex flex-col items-center justify-center p-2 sm:p-3 ${
                 isLibrary
-                  ? "bg-gradient-to-br from-emerald-950 via-zinc-900 to-stone-900"
+                  ? "bg-gradient-to-br from-secondary via-card to-muted"
                   : "bg-gradient-to-br from-primary/20 to-primary/5"
               }`}
             >
