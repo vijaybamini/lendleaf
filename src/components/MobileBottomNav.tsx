@@ -54,7 +54,7 @@ export function MobileBottomNav() {
   return (
     <nav
       className={[
-        "fixed bottom-0 left-0 right-0 z-50",
+        "flex-none",
         "border-t border-white/10 bg-[#070a0f]/95 backdrop-blur-xl",
         "pb-[env(safe-area-inset-bottom)]",
       ].join(" ")}
