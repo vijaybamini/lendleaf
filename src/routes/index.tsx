@@ -45,10 +45,17 @@ function Landing() {
         <div className="container mx-auto flex h-14 sm:h-16 items-center gap-2 sm:gap-3 px-3 sm:px-4 max-w-6xl">
           <Link to="/" className="flex items-center gap-2 group flex-shrink-0">
             <BookOpen className="h-6 w-6 text-primary transition-transform group-hover:-rotate-6" />
-            <span className="font-serif text-lg sm:text-xl font-semibold tracking-tight hidden sm:inline">
-              LendLeaf
-            </span>
+            <span className="font-serif text-lg font-semibold text-foreground">LendLeaf</span>
           </Link>
+          <div className="ml-auto flex items-center gap-2 sm:gap-3">
+            <Button asChild variant="ghost" className="text-foreground hover:text-primary">
+              <Link to="/login">Log in</Link>
+            </Button>
+            <Button asChild className="px-5 shadow-sm">
+              <Link to="/signup">Sign up</Link>
+            </Button>
+          </div>
+
         </div>
       </header>
 
@@ -63,7 +70,7 @@ function Landing() {
                   Peer-to-peer book sharing
                 </div>
                 <h1 className="font-serif text-5xl md:text-6xl lg:text-7xl font-semibold leading-[1.05] text-balance">
-                  Books are <em className="text-primary not-italic">better</em> when shared.
+                  Books are <em className="text-primary">better</em> when shared.
                 </h1>
                 <p className="mt-6 text-lg text-muted-foreground max-w-md leading-relaxed">
                   Catalog your collection, lend to friends, and discover what your neighbors are
@@ -82,7 +89,7 @@ function Landing() {
               </div>
 
               {/* Decorative book stack */}
-              <div className="relative hidden md:block">
+              <div className="relative hidden md:block" aria-hidden="true">
                 <div className="relative h-[420px] flex items-end justify-center gap-3">
                   {[
                     { h: 280, c: "oklch(0.42 0.09 145)", t: "Walden", a: "Thoreau" },
@@ -93,15 +100,15 @@ function Landing() {
                   ].map((b, i) => (
                     <div
                       key={i}
-                      className="w-16 rounded-sm shadow-book flex flex-col justify-between p-2 text-[10px] text-paper/90 transition-transform hover:-translate-y-2"
+                      className="w-16 rounded-sm shadow-book flex flex-col justify-between p-2 transition-transform hover:-translate-y-2"
                       style={{
                         height: b.h,
                         background: `linear-gradient(135deg, ${b.c}, color-mix(in oklab, ${b.c} 70%, black))`,
                         transform: `rotate(${(i - 2) * 1.2}deg)`,
                       }}
                     >
-                      <div className="font-serif leading-tight">{b.t}</div>
-                      <div className="opacity-70">{b.a}</div>
+                      <div className="font-serif leading-tight text-paper/90">{b.t}</div>
+                      <div className="text-paper/90 opacity-70">{b.a}</div>
                     </div>
                   ))}
                 </div>
@@ -143,8 +150,7 @@ function Landing() {
         </section>
 
         {/* CTA strip */}
-        {!user && (
-          <section className="container mx-auto px-4 max-w-6xl py-20 text-center">
+        <section className="container mx-auto px-4 max-w-6xl py-20 text-center">
             <h2 className="font-serif text-3xl md:text-4xl font-semibold mb-4">Open the cover.</h2>
             <p className="text-muted-foreground mb-8 max-w-md mx-auto">
               Free, friendly, and built for readers who like the smell of paper.
@@ -153,7 +159,6 @@ function Landing() {
               <Link to="/signup">Create your account</Link>
             </Button>
           </section>
-        )}
       </main>
 
       <footer className="border-t border-border/60 py-6 text-center text-xs text-muted-foreground">
